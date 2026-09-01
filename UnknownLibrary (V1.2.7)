@@ -1,0 +1,435 @@
+local buildSharedHub = loadstring([[
+    return function(opts)
+        opts = opts or {}
+
+        local Players = game:GetService("Players")
+        local TweenService = game:GetService("TweenService")
+        local CoreGui = game:GetService("CoreGui")
+        local UserInputService = game:GetService("UserInputService")
+        local LocalPlayer = Players.LocalPlayer
+
+        local currentThemeColor = opts.theme or Color3.fromRGB(0, 180, 220)
+        local themeLabels = {}
+        local themeStrokes = {}
+        local themeFrames = {}
+        local allToggleSetters = {}
+
+        local function registerThemeText(lbl)
+            table.insert(themeLabels, lbl)
+            lbl.TextColor3 = currentThemeColor
+        end
+
+        local function registerThemeStroke(stroke)
+            table.insert(themeStrokes, stroke)
+            stroke.Color = currentThemeColor
+        end
+
+        local function registerThemeFrame(frm)
+            table.insert(themeFrames, frm)
+            frm.BackgroundColor3 = currentThemeColor
+        end
+
+        local function applyCorner(obj)
+            local c = Instance.new("UICorner")
+            c.CornerRadius = UDim.new(0, 8)
+            c.Parent = obj
+            return c
+        end
+
+        local function makeSmoothDraggable(guiFrame, dragHandle)
+            dragHandle = dragHandle or guiFrame
+            if not guiFrame or not dragHandle then return end
+            local dragging = false
+            local dragInput, dragStart, startPos
+
+            dragHandle.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = true
+                    dragStart = input.Position
+                    startPos = guiFrame.Position
+                    input.Changed:Connect(function()
+                        if input.UserInputState == Enum.UserInputState.End then
+                            dragging = false
+                        end
+                    end)
+                end
+            end)
+
+            dragHandle.InputChanged:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                    dragInput = input
+                end
+            end)
+
+            UserInputService.InputChanged:Connect(function(input)
+                if input == dragInput and dragging then
+                    local delta = input.Position - dragStart
+                    local targetPos = UDim2.new(
+                        startPos.X.Scale,
+                        startPos.X.Offset + delta.X,
+                        startPos.Y.Scale,
+                        startPos.Y.Offset + delta.Y
+                    )
+                    TweenService:Create(guiFrame, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = targetPos}):Play()
+                end
+            end)
+        end
+
+        local function createCloseConfirmation(screenGui, onConfirm)
+            if not screenGui then return end
+            if screenGui:FindFirstChild("ENI_CloseConfirmOverlay") then return end
+
+            local overlay = Instance.new("Frame")
+            overlay.Name = "ENI_CloseConfirmOverlay"
+            overlay.Size = UDim2.new(1, 0, 1, 0)
+            overlay.BackgroundColor3 = Color3.fromRGB(8, 10, 20)
+            overlay.BackgroundTransparency = 1
+            overlay.Parent = screenGui
+
+            local panel = Instance.new("Frame")
+            panel.Name = "ConfirmPanel"
+            panel.Size = UDim2.new(0, 230, 0, 118)
+            panel.Position = UDim2.new(0.5, -115, 0.5, -59)
+            panel.BackgroundColor3 = Color3.fromRGB(20, 24, 36)
+            panel.BorderSizePixel = 0
+            panel.Parent = overlay
+            applyCorner(panel)
+
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = Color3.fromRGB(255, 187, 62)
+            stroke.Thickness = 1.5
+            stroke.Parent = panel
+
+            local warn = Instance.new("TextLabel")
+            warn.Size = UDim2.new(0, 30, 0, 30)
+            warn.Position = UDim2.new(0.5, -15, 0, 12)
+            warn.BackgroundTransparency = 1
+            warn.Text = "⚠️"
+            warn.TextSize = 18
+            warn.Font = Enum.Font.GothamBlack
+            warn.TextColor3 = Color3.fromRGB(255, 190, 80)
+            warn.TextXAlignment = Enum.TextXAlignment.Center
+            warn.Parent = panel
+
+            local title = Instance.new("TextLabel")
+            title.Size = UDim2.new(1, -24, 0, 20)
+            title.Position = UDim2.new(0, 12, 0, 44)
+            title.BackgroundTransparency = 1
+            title.Text = "Confirm Close"
+            title.TextColor3 = Color3.fromRGB(255, 255, 255)
+            title.Font = Enum.Font.GothamBold
+            title.TextSize = 14
+            title.TextXAlignment = Enum.TextXAlignment.Center
+            title.Parent = panel
+
+            local msg = Instance.new("TextLabel")
+            msg.Size = UDim2.new(1, -26, 0, 30)
+            msg.Position = UDim2.new(0, 13, 0, 68)
+            msg.BackgroundTransparency = 1
+            msg.Text = "This disables all active functions."
+            msg.TextColor3 = Color3.fromRGB(200, 205, 220)
+            msg.Font = Enum.Font.GothamMedium
+            msg.TextSize = 11
+            msg.TextWrapped = true
+            msg.TextXAlignment = Enum.TextXAlignment.Center
+            msg.Parent = panel
+
+            local cancelBtn = Instance.new("TextButton")
+            cancelBtn.Size = UDim2.new(0, 72, 0, 26)
+            cancelBtn.Position = UDim2.new(0.5, -86, 1, -34)
+            cancelBtn.BackgroundColor3 = Color3.fromRGB(40, 46, 60)
+            cancelBtn.Text = "Cancel"
+            cancelBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            cancelBtn.Font = Enum.Font.GothamSemibold
+            cancelBtn.TextSize = 12
+            cancelBtn.Parent = panel
+            applyCorner(cancelBtn)
+
+            local confirmBtn = Instance.new("TextButton")
+            confirmBtn.Size = UDim2.new(0, 72, 0, 26)
+            confirmBtn.Position = UDim2.new(0.5, 14, 1, -34)
+            confirmBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+            confirmBtn.Text = "Close"
+            confirmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            confirmBtn.Font = Enum.Font.GothamBold
+            confirmBtn.TextSize = 12
+            confirmBtn.Parent = panel
+            applyCorner(confirmBtn)
+
+            local startPos = panel.Position
+            panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset, startPos.Y.Scale, startPos.Y.Offset + 12)
+            panel.Size = UDim2.new(0, 210, 0, 104)
+
+            TweenService:Create(overlay, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.45}):Play()
+            TweenService:Create(panel, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = startPos, Size = UDim2.new(0, 230, 0, 118)}):Play()
+
+            cancelBtn.MouseButton1Click:Connect(function()
+                TweenService:Create(overlay, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
+                TweenService:Create(panel, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(startPos.X.Scale, startPos.X.Offset, startPos.Y.Scale, startPos.Y.Offset + 10), Size = UDim2.new(0, 210, 0, 104)}):Play()
+                task.delay(0.15, function() overlay:Destroy() end)
+            end)
+
+            confirmBtn.MouseButton1Click:Connect(function()
+                if onConfirm then pcall(onConfirm) end
+            end)
+        end
+
+        local function DisableAllFeatureStates()
+            pcall(function()
+                for key, _ in pairs(getgenv()) do
+                    if type(key) == "string" and key:sub(1, 4) == "ENI_" then
+                        getgenv()[key] = false
+                    end
+                end
+            end)
+
+            for _, setter in ipairs(allToggleSetters) do
+                pcall(function()
+                    if setter then setter(false) end
+                end)
+            end
+
+            local cleanup = getgenv().ENI_Cleanup or _G.ENI_Cleanup
+            if cleanup then
+                pcall(cleanup)
+            end
+        end
+
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name = opts.name or "ENI_SharedHub"
+        screenGui.ResetOnSpawn = false
+        local parent = opts.parent or (gethui and gethui()) or CoreGui or LocalPlayer:WaitForChild("PlayerGui")
+        screenGui.Parent = parent
+
+        local mainFrame = Instance.new("Frame")
+        mainFrame.Name = "MainFrame"
+        mainFrame.Size = UDim2.new(0, 560, 0, 380)
+        mainFrame.Position = UDim2.new(0.5, -280, 0.2, 0)
+        mainFrame.BackgroundColor3 = Color3.fromRGB(12, 14, 20)
+        mainFrame.BorderSizePixel = 0
+        mainFrame.Active = true
+        mainFrame.ClipsDescendants = true
+        mainFrame.Parent = screenGui
+
+        local mainStroke = Instance.new("UIStroke")
+        mainStroke.Color = Color3.fromRGB(35, 45, 65)
+        mainStroke.Thickness = 1.5
+        mainStroke.Parent = mainFrame
+        registerThemeStroke(mainStroke)
+
+        applyCorner(mainFrame)
+
+        local header = Instance.new("Frame")
+        header.Name = "Header"
+        header.Size = UDim2.new(1, 0, 0, 46)
+        header.BackgroundColor3 = Color3.fromRGB(16, 19, 28)
+        header.BorderSizePixel = 0
+        header.Parent = mainFrame
+        applyCorner(header)
+        makeSmoothDraggable(mainFrame, header)
+
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Name = "Title"
+        titleLabel.Size = UDim2.new(0.5, 0, 1, 0)
+        titleLabel.Position = UDim2.new(0.035, 0, 0, 0)
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Text = opts.title or "MY HUB"
+        titleLabel.Font = Enum.Font.GothamBlack
+        titleLabel.TextSize = 15
+        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        titleLabel.Parent = header
+        registerThemeText(titleLabel)
+
+        local closeBtn = Instance.new("TextButton")
+        closeBtn.Name = "CloseBtn"
+        closeBtn.Size = UDim2.new(0, 28, 0, 28)
+        closeBtn.Position = UDim2.new(1, -36, 0.5, -14)
+        closeBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 60)
+        closeBtn.Text = "✕"
+        closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        closeBtn.Font = Enum.Font.GothamBold
+        closeBtn.TextSize = 14
+        closeBtn.Parent = header
+        applyCorner(closeBtn)
+
+        closeBtn.MouseButton1Click:Connect(function()
+            createCloseConfirmation(screenGui, function()
+                DisableAllFeatureStates()
+                if opts.onClose then pcall(opts.onClose) end
+                if screenGui then screenGui:Destroy() end
+            end)
+        end)
+
+        local content = Instance.new("ScrollingFrame")
+        content.Name = "Content"
+        content.Size = UDim2.new(1, -20, 1, -52)
+        content.Position = UDim2.new(0, 10, 0, 48)
+        content.BackgroundTransparency = 1
+        content.ScrollBarThickness = 4
+        content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        content.CanvasSize = UDim2.new(0, 0, 0, 0)
+        content.Parent = mainFrame
+
+        local contentLayout = Instance.new("UIListLayout")
+        contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        contentLayout.Padding = UDim.new(0, 8)
+        contentLayout.Parent = content
+
+        local function createListItem(parent, titleText, subtitleText, callback)
+            local item = Instance.new("TextButton")
+            item.Size = UDim2.new(1, 0, 0, 44)
+            item.BackgroundColor3 = Color3.fromRGB(24, 28, 40)
+            item.AutoButtonColor = false
+            item.Text = ""
+            item.Parent = parent
+            applyCorner(item)
+
+            local accent = Instance.new("Frame")
+            accent.Size = UDim2.new(0, 3, 1, 0)
+            accent.BackgroundColor3 = currentThemeColor
+            accent.BorderSizePixel = 0
+            accent.Parent = item
+            registerThemeFrame(accent)
+
+            local noSubtitle = typeof(subtitleText) == "string" and string.lower(subtitleText) == "nope"
+
+            local title = Instance.new("TextLabel")
+            title.Size = noSubtitle and UDim2.new(1, -20, 1, 0) or UDim2.new(1, -20, 0, 18)
+            title.Position = noSubtitle and UDim2.new(0, 12, 0, 0) or UDim2.new(0, 12, 0, 7)
+            title.BackgroundTransparency = 1
+            title.Text = titleText
+            title.TextColor3 = Color3.fromRGB(240, 244, 250)
+            title.Font = Enum.Font.GothamBold
+            title.TextSize = 12
+            title.TextXAlignment = Enum.TextXAlignment.Left
+            title.TextYAlignment = noSubtitle and Enum.TextYAlignment.Center or Enum.TextYAlignment.Top
+            title.Parent = item
+            registerThemeText(title)
+
+            local subtitle = Instance.new("TextLabel")
+            subtitle.Size = UDim2.new(1, -20, 0, 15)
+            subtitle.Position = UDim2.new(0, 12, 0, 22)
+            subtitle.BackgroundTransparency = 1
+            subtitle.Text = subtitleText or ""
+            subtitle.TextColor3 = Color3.fromRGB(150, 160, 180)
+            subtitle.Font = Enum.Font.Gotham
+            subtitle.TextSize = 10
+            subtitle.TextXAlignment = Enum.TextXAlignment.Left
+            subtitle.Visible = not noSubtitle
+            subtitle.Parent = item
+
+            item.MouseEnter:Connect(function()
+                TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(35, 42, 60)}):Play()
+            end)
+
+            item.MouseLeave:Connect(function()
+                TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(24, 28, 40)}):Play()
+            end)
+
+            item.MouseButton1Click:Connect(function()
+                if callback then pcall(callback) end
+            end)
+
+            return item
+        end
+
+        local function createSliderToggle(parent, titleText, defaultState, callback, keyName)
+            if not parent then return nil end
+
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(0.98, 0, 0, 42)
+            frame.BackgroundColor3 = Color3.fromRGB(20, 25, 36)
+            frame.BorderSizePixel = 0
+            frame.Parent = parent
+            applyCorner(frame)
+
+            local fStroke = Instance.new("UIStroke")
+            fStroke.Color = Color3.fromRGB(35, 42, 58)
+            fStroke.Transparency = 0.5
+            fStroke.Thickness = 1
+            fStroke.Parent = frame
+
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(0.65, 0, 1, 0)
+            label.Position = UDim2.new(0.04, 0, 0, 0)
+            label.BackgroundTransparency = 1
+            label.Text = titleText
+            label.TextColor3 = Color3.fromRGB(230, 235, 245)
+            label.Font = Enum.Font.GothamBold
+            label.TextSize = 12
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.Parent = frame
+
+            local switchTrack = Instance.new("Frame")
+            switchTrack.Size = UDim2.new(0, 50, 0, 24)
+            switchTrack.Position = UDim2.new(1, -60, 0.5, -12)
+            switchTrack.BackgroundColor3 = defaultState and currentThemeColor or Color3.fromRGB(48, 54, 70)
+            switchTrack.BorderSizePixel = 0
+            switchTrack.Parent = frame
+            applyCorner(switchTrack)
+
+            local knob = Instance.new("Frame")
+            knob.Size = UDim2.new(0, 20, 0, 20)
+            knob.Position = defaultState and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
+            knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            knob.BorderSizePixel = 0
+            knob.Parent = switchTrack
+            applyCorner(knob)
+
+            local clickBtn = Instance.new("TextButton")
+            clickBtn.Size = UDim2.new(1, 0, 1, 0)
+            clickBtn.BackgroundTransparency = 1
+            clickBtn.Text = ""
+            clickBtn.ZIndex = 5
+            clickBtn.Parent = frame
+
+            local state = defaultState
+
+            local manualSet = function(forceState)
+                if state == forceState then return end
+                state = forceState
+                local targetPos = state and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
+                local targetColor = state and currentThemeColor or Color3.fromRGB(48, 54, 70)
+                TweenService:Create(knob, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = targetPos}):Play()
+                TweenService:Create(switchTrack, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = targetColor}):Play()
+                if callback then callback(state) end
+            end
+
+            table.insert(allToggleSetters, manualSet)
+            clickBtn.MouseButton1Click:Connect(function()
+                manualSet(not state)
+            end)
+
+            return function() return state end, manualSet
+        end
+
+        return {
+            gui = screenGui,
+            frame = mainFrame,
+            content = content,
+            addItem = function(titleText, subtitleText, callback)
+                return createListItem(content, titleText, subtitleText, callback)
+            end,
+            addToggle = function(titleText, defaultState, callback, keyName)
+                return createSliderToggle(content, titleText, defaultState, callback, keyName)
+            end,
+            registerToggle = function(setter)
+                if setter then table.insert(allToggleSetters, setter) end
+            end,
+            destroy = function()
+                if screenGui then screenGui:Destroy() end
+            end,
+            disableAll = DisableAllFeatureStates,
+        }
+    end
+]])()
+
+local hub = buildSharedHub({
+    name = "ENI_TabbedHub_UI",
+    parent = gethui and gethui() or game:GetService("CoreGui"),
+    title = "PLACEHOLDER",
+    theme = Color3.fromRGB(0, 180, 220),
+    onClose = function()
+        print("hub closed")
+    end,
+})
