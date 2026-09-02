@@ -309,13 +309,28 @@ return function(opts)
         end)
     end)
 
-    local sidebar = Instance.new("Frame")
+    local sidebar = Instance.new("ScrollingFrame")
     sidebar.Name = "Sidebar"
     sidebar.Size = UDim2.new(0, 150, 1, -46)
     sidebar.Position = UDim2.new(0, 0, 0, 46)
     sidebar.BackgroundColor3 = Color3.fromRGB(16, 19, 27)
     sidebar.BorderSizePixel = 0
+    sidebar.ScrollBarThickness = 4
+    sidebar.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    sidebar.CanvasSize = UDim2.new(0, 0, 0, 0)
     sidebar.Parent = mainFrame
+
+    local sidebarPadding = Instance.new("UIPadding")
+    sidebarPadding.PaddingTop = UDim.new(0, 8)
+    sidebarPadding.PaddingBottom = UDim.new(0, 8)
+    sidebarPadding.PaddingLeft = UDim.new(0, 8)
+    sidebarPadding.PaddingRight = UDim.new(0, 8)
+    sidebarPadding.Parent = sidebar
+
+    local sidebarLayout = Instance.new("UIListLayout")
+    sidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    sidebarLayout.Padding = UDim.new(0, 6)
+    sidebarLayout.Parent = sidebar
 
     local contentArea = Instance.new("Frame")
     contentArea.Name = "ContentArea"
@@ -371,7 +386,7 @@ return function(opts)
         local page = createPage(name)
         local btn = Instance.new("TextButton")
         btn.Name = name
-        btn.Size = UDim2.new(0.92, 0, 0, 34)
+        btn.Size = UDim2.new(1, 0, 0, 34)
         btn.BackgroundColor3 = Color3.fromRGB(24, 28, 40)
         btn.Text = ""
         btn.AutoButtonColor = false
@@ -490,6 +505,124 @@ return function(opts)
         table.insert(allToggleSetters, setState)
         setState(state)
         return frame
+    end
+
+    local function createSlider(parent, titleText, minValue, maxValue, defaultValue, suffix, callback)
+        if not parent then parent = contentArea end
+        minValue = tonumber(minValue) or 0
+        maxValue = tonumber(maxValue) or 100
+        if maxValue < minValue then
+            minValue, maxValue = maxValue, minValue
+        end
+        local value = math.clamp(tonumber(defaultValue) or minValue, minValue, maxValue)
+        local range = math.max(1, maxValue - minValue)
+
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(1, -10, 0, 50)
+        frame.BackgroundColor3 = Color3.fromRGB(20, 25, 36)
+        frame.BorderSizePixel = 0
+        frame.Parent = parent
+        applyCorner(frame)
+
+        local frameStroke = Instance.new("UIStroke")
+        frameStroke.Color = Color3.fromRGB(35, 42, 58)
+        frameStroke.Transparency = 0.5
+        frameStroke.Thickness = 1
+        frameStroke.Parent = frame
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0.7, 0, 0, 20)
+        label.Position = UDim2.new(0.04, 0, 0, 4)
+        label.BackgroundTransparency = 1
+        label.Text = titleText or "Slider"
+        label.TextColor3 = Color3.fromRGB(230, 235, 245)
+        label.Font = Enum.Font.GothamBold
+        label.TextSize = 12
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Parent = frame
+
+        local valueLabel = Instance.new("TextLabel")
+        valueLabel.Size = UDim2.new(0.25, 0, 0, 20)
+        valueLabel.Position = UDim2.new(0.71, 0, 0, 4)
+        valueLabel.BackgroundTransparency = 1
+        valueLabel.TextColor3 = currentThemeColor
+        valueLabel.Font = Enum.Font.GothamBold
+        valueLabel.TextSize = 11
+        valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+        valueLabel.Parent = frame
+
+        local track = Instance.new("TextButton")
+        track.Size = UDim2.new(0.92, 0, 0, 8)
+        track.Position = UDim2.new(0.04, 0, 0, 32)
+        track.BackgroundColor3 = Color3.fromRGB(48, 54, 70)
+        track.Text = ""
+        track.AutoButtonColor = false
+        track.BorderSizePixel = 0
+        track.Parent = frame
+        applyCorner(track)
+
+        local fill = Instance.new("Frame")
+        fill.BackgroundColor3 = currentThemeColor
+        fill.BorderSizePixel = 0
+        fill.Parent = track
+        applyCorner(fill)
+
+        local knob = Instance.new("Frame")
+        knob.Size = UDim2.new(0, 14, 0, 14)
+        knob.AnchorPoint = Vector2.new(0.5, 0.5)
+        knob.Position = UDim2.new(0, 0, 0.5, 0)
+        knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        knob.BorderSizePixel = 0
+        knob.Parent = track
+        applyCorner(knob)
+
+        local function formatValue(number)
+            if number % 1 == 0 then
+                return tostring(math.floor(number)) .. (suffix or "")
+            end
+            return string.format("%.2f", number) .. (suffix or "")
+        end
+
+        local function setValue(newValue, fireCallback)
+            value = math.clamp(tonumber(newValue) or value, minValue, maxValue)
+            local percent = (value - minValue) / range
+            valueLabel.Text = formatValue(value)
+            fill.Size = UDim2.new(percent, 0, 1, 0)
+            knob.Position = UDim2.new(percent, 0, 0.5, 0)
+            if fireCallback and callback then pcall(callback, value) end
+        end
+
+        local dragging = false
+        local function updateFromInput(input)
+            local percent = (input.Position.X - track.AbsolutePosition.X) / math.max(1, track.AbsoluteSize.X)
+            setValue(minValue + math.clamp(percent, 0, 1) * range, true)
+        end
+
+        track.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                updateFromInput(input)
+            end
+        end)
+
+        track.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+            end
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                updateFromInput(input)
+            end
+        end)
+
+        setValue(value, false)
+        return {
+            Frame = frame,
+            Set = function(newValue) setValue(newValue, true) end,
+            Get = function() return value end,
+        }
     end
 
     local function createListItem(parent, titleText, subtitleText, callback)
@@ -694,8 +827,6 @@ return function(opts)
         return listObject
     end
 
-    local defaultTab = createTabButton("Main", "Main", "rbxassetid://10723407389", true)
-
     return {
         gui = screenGui,
         frame = mainFrame,
@@ -715,11 +846,13 @@ return function(opts)
         disableAll = DisableAllFeatureStates,
         CreateButton = createButton,
         CreateToggle = createToggle,
+        CreateSlider = createSlider,
         CreateList = CreateList,
         createTabButton = createTabButton,
         BringSelectedItem = BringSelectedItem,
         createPage = createPage,
         createSliderToggle = createToggle,
+        createValueSlider = createSlider,
         addSectionDivider = function(parent)
             local line = Instance.new("Frame")
             line.Size = UDim2.new(1, -10, 0, 1)
