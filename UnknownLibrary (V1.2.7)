@@ -533,7 +533,27 @@ return function(opts)
         local itemHeight = height or 160
         local itemExpanded = expanded ~= false
 
-        if typeof(parentTarget) == "Instance" then
+        if type(parentTarget) == "table" then
+            itemValues = parentTarget
+            parentTarget = contentArea
+            itemTitle = "List"
+            itemHeight = title or 160
+            itemExpanded = items ~= false
+        elseif type(parentTarget) == "string" then
+            if type(title) == "table" then
+                itemTitle = parentTarget
+                itemValues = title
+                parentTarget = contentArea
+                itemHeight = items or 160
+                itemExpanded = height ~= false
+            else
+                itemTitle = parentTarget
+                parentTarget = title or contentArea
+                itemValues = items or {}
+                itemHeight = height or 160
+                itemExpanded = expanded ~= false
+            end
+        elseif typeof(parentTarget) == "Instance" then
             if type(title) == "table" then
                 itemValues = title
                 itemTitle = "List"
@@ -543,18 +563,6 @@ return function(opts)
                 itemHeight = items or 160
                 itemValues = {}
             end
-        elseif type(parentTarget) == "table" and not parentTarget:IsA then
-            itemValues = parentTarget
-            parentTarget = contentArea
-            itemTitle = title or "List"
-            itemHeight = items or 160
-            itemExpanded = height ~= false
-        elseif type(parentTarget) == "string" then
-            itemTitle = parentTarget
-            parentTarget = title or contentArea
-            itemValues = items or {}
-            itemHeight = height or 160
-            itemExpanded = expanded ~= false
         end
 
         if type(itemValues) ~= "table" then
@@ -603,7 +611,8 @@ return function(opts)
             frame.Size = open and UDim2.new(1, -10, 0, itemHeight) or UDim2.new(1, -10, 0, 28)
         end)
 
-        local listObject = {
+        local listObject
+        listObject = {
             Frame = frame,
             List = list,
             SelectedItem = nil,
