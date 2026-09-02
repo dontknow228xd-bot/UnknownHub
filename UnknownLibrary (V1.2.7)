@@ -260,6 +260,12 @@ return function(opts)
     mainFrame.Active = true
     mainFrame.ClipsDescendants = true
     mainFrame.Parent = screenGui
+
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(35, 45, 65)
+    mainStroke.Thickness = 1.5
+    mainStroke.Parent = mainFrame
+    registerThemeStroke(mainStroke)
     applyCorner(mainFrame)
 
     local header = Instance.new("Frame")
@@ -409,6 +415,14 @@ return function(opts)
         item.Parent = parent
         applyCorner(item)
 
+        item.MouseEnter:Connect(function()
+            TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(35, 42, 60)}):Play()
+        end)
+
+        item.MouseLeave:Connect(function()
+            TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(24, 28, 40)}):Play()
+        end)
+
         item.MouseButton1Click:Connect(function()
             if callback then pcall(callback) end
         end)
@@ -423,6 +437,12 @@ return function(opts)
         frame.BorderSizePixel = 0
         frame.Parent = parent
         applyCorner(frame)
+
+        local frameStroke = Instance.new("UIStroke")
+        frameStroke.Color = Color3.fromRGB(35, 42, 58)
+        frameStroke.Transparency = 0.5
+        frameStroke.Thickness = 1
+        frameStroke.Parent = frame
 
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(0.7, 0, 1, 0)
@@ -482,6 +502,8 @@ return function(opts)
         item.Parent = parent
         applyCorner(item)
 
+        local noSubtitle = typeof(subtitleText) == "string" and string.lower(subtitleText) == "nope"
+
         local accent = Instance.new("Frame")
         accent.Size = UDim2.new(0, 3, 1, 0)
         accent.BackgroundColor3 = currentThemeColor
@@ -489,28 +511,37 @@ return function(opts)
         accent.Parent = item
 
         local title = Instance.new("TextLabel")
-        title.Size = UDim2.new(1, -20, 0, 18)
-        title.Position = UDim2.new(0, 12, 0, 7)
+        title.Size = noSubtitle and UDim2.new(1, -20, 1, 0) or UDim2.new(1, -20, 0, 18)
+        title.Position = noSubtitle and UDim2.new(0, 12, 0, 0) or UDim2.new(0, 12, 0, 7)
         title.BackgroundTransparency = 1
         title.Text = titleText
         title.TextColor3 = Color3.fromRGB(240, 244, 250)
         title.Font = Enum.Font.GothamBold
         title.TextSize = 12
         title.TextXAlignment = Enum.TextXAlignment.Left
+        title.TextYAlignment = noSubtitle and Enum.TextYAlignment.Center or Enum.TextYAlignment.Top
         title.Parent = item
+        registerThemeText(title)
 
-        if subtitleText and subtitleText ~= "" and subtitleText ~= "nope" then
-            local subtitle = Instance.new("TextLabel")
-            subtitle.Size = UDim2.new(1, -20, 0, 15)
-            subtitle.Position = UDim2.new(0, 12, 0, 22)
-            subtitle.BackgroundTransparency = 1
-            subtitle.Text = subtitleText
-            subtitle.TextColor3 = Color3.fromRGB(150, 160, 180)
-            subtitle.Font = Enum.Font.Gotham
-            subtitle.TextSize = 10
-            subtitle.TextXAlignment = Enum.TextXAlignment.Left
-            subtitle.Parent = item
-        end
+        local subtitle = Instance.new("TextLabel")
+        subtitle.Size = UDim2.new(1, -20, 0, 15)
+        subtitle.Position = UDim2.new(0, 12, 0, 22)
+        subtitle.BackgroundTransparency = 1
+        subtitle.Text = subtitleText or ""
+        subtitle.TextColor3 = Color3.fromRGB(150, 160, 180)
+        subtitle.Font = Enum.Font.Gotham
+        subtitle.TextSize = 10
+        subtitle.TextXAlignment = Enum.TextXAlignment.Left
+        subtitle.Visible = not noSubtitle
+        subtitle.Parent = item
+
+        item.MouseEnter:Connect(function()
+            TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(35, 42, 60)}):Play()
+        end)
+
+        item.MouseLeave:Connect(function()
+            TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(24, 28, 40)}):Play()
+        end)
 
         item.MouseButton1Click:Connect(function()
             if callback then pcall(callback) end
