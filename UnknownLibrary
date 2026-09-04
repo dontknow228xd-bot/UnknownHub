@@ -11,10 +11,16 @@ return function(opts)
     local themeLabels = {}
     local themeStrokes = {}
     local themeFrames = {}
+    local themeUpdaters = {}
     local allToggleSetters = {}
     local tabButtons = {}
     local tabPages = {}
     local listRegistry = {}
+    local configValues = {}
+    local configSetters = {}
+    local configTabPage = nil
+    local configTabButton = nil
+    local ensureConfigTab
 
     local function destroyOldGui()
         local parents = {CoreGui, LocalPlayer:FindFirstChild("PlayerGui")}
@@ -45,6 +51,22 @@ return function(opts)
     local function registerThemeFrame(frm)
         table.insert(themeFrames, frm)
         if frm then frm.BackgroundColor3 = currentThemeColor end
+    end
+
+    local function applyTheme(color)
+        currentThemeColor = color
+        for _, label in ipairs(themeLabels) do
+            if label and label.Parent then label.TextColor3 = currentThemeColor end
+        end
+        for _, stroke in ipairs(themeStrokes) do
+            if stroke and stroke.Parent then stroke.Color = currentThemeColor end
+        end
+        for _, frame in ipairs(themeFrames) do
+            if frame and frame.Parent then frame.BackgroundColor3 = currentThemeColor end
+        end
+        for _, updater in ipairs(themeUpdaters) do
+            pcall(updater, currentThemeColor)
+        end
     end
 
     local function applyCorner(obj)
@@ -350,9 +372,11 @@ return function(opts)
         end
         for _, btn in ipairs(tabButtons) do
             if btn and btn.Name == tabName then
-                btn.BackgroundColor3 = Color3.fromRGB(35, 42, 60)
+                TweenService:Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(35, 42, 60)}):Play()
             else
-                if btn then btn.BackgroundColor3 = Color3.fromRGB(24, 28, 40) end
+                if btn then
+                    TweenService:Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(24, 28, 40)}):Play()
+                end
             end
         end
     end
@@ -391,6 +415,7 @@ return function(opts)
         btn.BackgroundColor3 = Color3.fromRGB(24, 28, 40)
         btn.Text = ""
         btn.AutoButtonColor = false
+        btn.LayoutOrder = name == "Config" and 100000 or #tabButtons + 1
         btn.Parent = sidebar
         applyCorner(btn)
 
@@ -414,6 +439,10 @@ return function(opts)
             task.defer(function() setTabVisible(name) end)
         end
 
+        if name ~= "Config" and ensureConfigTab then
+            ensureConfigTab()
+        end
+
         return page
     end
 
@@ -431,18 +460,228 @@ return function(opts)
         item.Parent = parent
         applyCorner(item)
 
+        local normalColor = Color3.fromRGB(24, 28, 40)
+        local hoverColor = Color3.fromRGB(35, 42, 60)
+        local hoverTween = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
         item.MouseEnter:Connect(function()
-            TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(35, 42, 60)}):Play()
+            TweenService:Create(item, hoverTween, {BackgroundColor3 = hoverColor}):Play()
         end)
 
         item.MouseLeave:Connect(function()
-            TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(24, 28, 40)}):Play()
+            TweenService:Create(item, hoverTween, {BackgroundColor3 = normalColor}):Play()
         end)
 
         item.MouseButton1Click:Connect(function()
             if callback then pcall(callback) end
         end)
         return item
+    end
+
+    local function createTextBox(parent, placeholderText)
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(1, -10, 0, 38)
+        frame.BackgroundColor3 = Color3.fromRGB(20, 25, 36)
+        frame.BorderSizePixel = 0
+        frame.Parent = parent or contentArea
+        applyCorner(frame)
+
+        local box = Instance.new("TextBox")
+        box.Size = UDim2.new(1, -16, 1, -8)
+        box.Position = UDim2.new(0, 8, 0, 4)
+        box.BackgroundColor3 = Color3.fromRGB(28, 34, 48)
+        box.BorderSizePixel = 0
+        box.ClearTextOnFocus = false
+        box.Font = Enum.Font.Gotham
+        box.PlaceholderText = placeholderText or "Enter text"
+        box.PlaceholderColor3 = Color3.fromRGB(135, 145, 165)
+        box.Text = ""
+        box.TextColor3 = Color3.fromRGB(235, 240, 248)
+        box.TextSize = 12
+        box.TextXAlignment = Enum.TextXAlignment.Left
+        box.Parent = frame
+        applyCorner(box)
+        return box
+    end
+
+    local function createThemeEditor(parent)
+        local section = Instance.new("Frame")
+        section.Size = UDim2.new(1, -10, 0, 242)
+        section.BackgroundColor3 = Color3.fromRGB(18, 22, 32)
+        section.BorderSizePixel = 0
+        section.Parent = parent or contentArea
+        applyCorner(section)
+
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, -16, 0, 22)
+        title.Position = UDim2.new(0, 8, 0, 6)
+        title.BackgroundTransparency = 1
+        title.Text = "Theme Editor"
+        title.Font = Enum.Font.GothamBold
+        title.TextSize = 12
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Parent = section
+        registerThemeText(title)
+
+        local picker = Instance.new("Frame")
+        picker.Size = UDim2.new(0, 190, 0, 190)
+        picker.Position = UDim2.new(0, 8, 0, 34)
+        picker.BackgroundColor3 = currentThemeColor
+        picker.BorderSizePixel = 0
+        picker.Active = true
+        picker.Parent = section
+        applyCorner(picker)
+
+        local whiteGradient = Instance.new("UIGradient")
+        whiteGradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.new(1, 1, 1))
+        whiteGradient.Transparency = NumberSequence.new(NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1))
+        whiteGradient.Parent = picker
+
+        local blackOverlay = Instance.new("Frame")
+        blackOverlay.Size = UDim2.new(1, 0, 1, 0)
+        blackOverlay.BackgroundColor3 = Color3.new(0, 0, 0)
+        blackOverlay.BackgroundTransparency = 0
+        blackOverlay.BorderSizePixel = 0
+        blackOverlay.Active = true
+        blackOverlay.Parent = picker
+        applyCorner(blackOverlay)
+
+        local blackGradient = Instance.new("UIGradient")
+        blackGradient.Color = ColorSequence.new(Color3.new(0, 0, 0), Color3.new(0, 0, 0))
+        blackGradient.Transparency = NumberSequence.new(NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0))
+        blackGradient.Rotation = 90
+        blackGradient.Parent = blackOverlay
+
+        local valueKnob = Instance.new("Frame")
+        valueKnob.Size = UDim2.new(0, 14, 0, 14)
+        valueKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+        valueKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        valueKnob.BorderSizePixel = 0
+        valueKnob.ZIndex = 3
+        valueKnob.Parent = picker
+        applyCorner(valueKnob)
+        local valueStroke = Instance.new("UIStroke")
+        valueStroke.Color = Color3.fromRGB(20, 24, 32)
+        valueStroke.Thickness = 2
+        valueStroke.Parent = valueKnob
+
+        local hueTrack = Instance.new("TextButton")
+        hueTrack.Size = UDim2.new(0, 190, 0, 14)
+        hueTrack.Position = UDim2.new(0, 8, 0, 228)
+        hueTrack.Text = ""
+        hueTrack.AutoButtonColor = false
+        hueTrack.BorderSizePixel = 0
+        hueTrack.Parent = section
+        applyCorner(hueTrack)
+
+        local hueGradient = Instance.new("UIGradient")
+        hueGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+            ColorSequenceKeypoint.new(0.166, Color3.fromRGB(255, 255, 0)),
+            ColorSequenceKeypoint.new(0.333, Color3.fromRGB(0, 255, 0)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)),
+            ColorSequenceKeypoint.new(0.666, Color3.fromRGB(0, 0, 255)),
+            ColorSequenceKeypoint.new(0.833, Color3.fromRGB(255, 0, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0)),
+        })
+        hueGradient.Parent = hueTrack
+
+        local hueKnob = Instance.new("Frame")
+        hueKnob.Size = UDim2.new(0, 6, 1, 4)
+        hueKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+        hueKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        hueKnob.BorderSizePixel = 0
+        hueKnob.ZIndex = 2
+        hueKnob.Parent = hueTrack
+        applyCorner(hueKnob)
+        local hueStroke = Instance.new("UIStroke")
+        hueStroke.Color = Color3.fromRGB(20, 24, 32)
+        hueStroke.Thickness = 1
+        hueStroke.Parent = hueKnob
+
+        local rgbLabel = Instance.new("TextLabel")
+        rgbLabel.Size = UDim2.new(1, -214, 0, 42)
+        rgbLabel.Position = UDim2.new(0, 208, 0, 52)
+        rgbLabel.BackgroundTransparency = 1
+        rgbLabel.TextColor3 = Color3.fromRGB(220, 228, 240)
+        rgbLabel.Font = Enum.Font.GothamSemibold
+        rgbLabel.TextSize = 12
+        rgbLabel.TextWrapped = true
+        rgbLabel.TextXAlignment = Enum.TextXAlignment.Left
+        rgbLabel.TextYAlignment = Enum.TextYAlignment.Top
+        rgbLabel.Parent = section
+
+        local hintLabel = Instance.new("TextLabel")
+        hintLabel.Size = UDim2.new(1, -214, 0, 48)
+        hintLabel.Position = UDim2.new(0, 208, 0, 98)
+        hintLabel.BackgroundTransparency = 1
+        hintLabel.Text = "Drag the square to choose brightness and saturation. Use the bar to choose the hue."
+        hintLabel.TextColor3 = Color3.fromRGB(145, 155, 175)
+        hintLabel.Font = Enum.Font.Gotham
+        hintLabel.TextSize = 10
+        hintLabel.TextWrapped = true
+        hintLabel.TextXAlignment = Enum.TextXAlignment.Left
+        hintLabel.TextYAlignment = Enum.TextYAlignment.Top
+        hintLabel.Parent = section
+
+        local hue, saturation, brightness = Color3.toHSV(currentThemeColor)
+        local function updatePicker()
+            local color = Color3.fromHSV(hue, saturation, brightness)
+            picker.BackgroundColor3 = Color3.fromHSV(hue, 1, 1)
+            valueKnob.Position = UDim2.new(saturation, 0, 1 - brightness, 0)
+            hueKnob.Position = UDim2.new(hue, 0, 0.5, 0)
+            rgbLabel.Text = string.format("RGB  %d, %d, %d", math.floor(color.R * 255 + 0.5), math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5))
+            applyTheme(color)
+            configValues.theme = string.format("%.6f,%.6f,%.6f", color.R, color.G, color.B)
+        end
+
+        configSetters.theme = function(value)
+            local red, green, blue = tostring(value):match("^([%d%.]+),([%d%.]+),([%d%.]+)$")
+            if red and green and blue then
+                local color = Color3.new(tonumber(red), tonumber(green), tonumber(blue))
+                hue, saturation, brightness = Color3.toHSV(color)
+                updatePicker()
+            end
+        end
+
+        local draggingTarget
+        local function updateFromInput(input, target)
+            local absolutePosition = target.AbsolutePosition
+            local absoluteSize = target.AbsoluteSize
+            local x = math.clamp((input.Position.X - absolutePosition.X) / math.max(1, absoluteSize.X), 0, 1)
+            local y = math.clamp((input.Position.Y - absolutePosition.Y) / math.max(1, absoluteSize.Y), 0, 1)
+            if target == picker or target == blackOverlay then
+                saturation = x
+                brightness = 1 - y
+            else
+                hue = x
+            end
+            updatePicker()
+        end
+
+        local function beginDrag(target, input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                draggingTarget = target
+                updateFromInput(input, target)
+            end
+        end
+
+        picker.InputBegan:Connect(function(input) beginDrag(picker, input) end)
+        blackOverlay.InputBegan:Connect(function(input) beginDrag(picker, input) end)
+        hueTrack.InputBegan:Connect(function(input) beginDrag(hueTrack, input) end)
+        UserInputService.InputChanged:Connect(function(input)
+            if draggingTarget and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                updateFromInput(input, draggingTarget)
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                draggingTarget = nil
+            end
+        end)
+
+        updatePicker()
+        return section
     end
 
     local function createToggle(parent, text, defaultState, callback)
@@ -489,11 +728,12 @@ return function(opts)
 
         local state = defaultState or false
         local function setState(v)
-            state = v
+            state = v == true
+            configValues["toggle:" .. tostring(text)] = state
             local targetPos = state and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
             local targetColor = state and currentThemeColor or Color3.fromRGB(48, 54, 70)
-            TweenService:Create(knob, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = targetPos}):Play()
-            TweenService:Create(switchTrack, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = targetColor}):Play()
+            TweenService:Create(knob, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = targetPos}):Play()
+            TweenService:Create(switchTrack, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = targetColor}):Play()
             if callback then pcall(callback, state) end
         end
 
@@ -504,6 +744,10 @@ return function(opts)
         click.Parent = frame
         click.MouseButton1Click:Connect(function() setState(not state) end)
         table.insert(allToggleSetters, setState)
+        configSetters["toggle:" .. tostring(text)] = setState
+        table.insert(themeUpdaters, function(themeColor)
+            if state and switchTrack.Parent then switchTrack.BackgroundColor3 = themeColor end
+        end)
         setState(state)
         return frame
     end
@@ -589,12 +833,21 @@ return function(opts)
 
         local function setValue(newValue, fireCallback)
             value = math.clamp(tonumber(newValue) or value, minValue, maxValue)
+            configValues["slider:" .. tostring(titleText)] = value
             local percent = (value - minValue) / range
             valueLabel.Text = formatValue(value)
             fill.Size = UDim2.new(percent, 0, 1, 0)
             knob.Position = UDim2.new(percent, 0, 0.5, 0)
             if fireCallback and callback then pcall(callback, value) end
         end
+
+        configSetters["slider:" .. tostring(titleText)] = function(newValue)
+            setValue(newValue, true)
+        end
+        table.insert(themeUpdaters, function(themeColor)
+            if valueLabel.Parent then valueLabel.TextColor3 = themeColor end
+            if fill.Parent then fill.BackgroundColor3 = themeColor end
+        end)
 
         local dragging = false
         local function updateFromInput(input)
@@ -686,9 +939,16 @@ return function(opts)
         subtitle.Parent = item
 
         local function paint(isHovered)
-            item.BackgroundColor3 = selected and (isHovered and selectedHoverColor or selectedColor) or (isHovered and hoverColor or normalColor)
-            accent.BackgroundColor3 = selected and selectedAccentColor or normalAccentColor
+            local targetColor = selected and (isHovered and selectedHoverColor or selectedColor) or (isHovered and hoverColor or normalColor)
+            local targetAccentColor = selected and selectedAccentColor or normalAccentColor
+            local transition = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            TweenService:Create(item, transition, {BackgroundColor3 = targetColor}):Play()
+            TweenService:Create(accent, transition, {BackgroundColor3 = targetAccentColor}):Play()
         end
+        table.insert(themeUpdaters, function(themeColor)
+            normalAccentColor = themeColor
+            if not selected and accent.Parent then accent.BackgroundColor3 = themeColor end
+        end)
 
         item.MouseEnter:Connect(function()
             paint(true)
@@ -805,6 +1065,9 @@ return function(opts)
         arrow.TextYAlignment = Enum.TextYAlignment.Center
         arrow.Rotation = itemExpanded and 90 or 0
         arrow.Parent = titleBtn
+        table.insert(themeUpdaters, function(themeColor)
+            if arrow.Parent then arrow.TextColor3 = themeColor end
+        end)
 
         local list = Instance.new("ScrollingFrame")
         list.Size = UDim2.new(1, 0, 1, -28)
@@ -854,6 +1117,7 @@ return function(opts)
                     listObject.SelectedRowSetter(false)
                 end
                 listObject.SelectedItem = value
+                configValues["list:" .. tostring(itemTitle)] = value and (type(value) == "table" and value.Name or tostring(value)) or nil
                 listObject.SelectedRowSetter = nil
                 for _, entryData in ipairs(listObject.Items) do
                     if entryData == value or entryData.Name == value then
@@ -871,6 +1135,9 @@ return function(opts)
             end,
         }
         listRegistry[tostring(itemTitle)] = listObject
+        configSetters["list:" .. tostring(itemTitle)] = function(value)
+            listObject.SetSelected(value)
+        end
 
         local function addEntry(entry)
             local entryData = nil
@@ -934,6 +1201,197 @@ return function(opts)
         end
 
         return listObject
+    end
+
+    local function sanitizeName(value)
+        local name = tostring(value or "Unknown")
+        name = name:gsub("[^%w%-%s_]", ""):gsub("%s+", "_")
+        return name ~= "" and name or "Unknown"
+    end
+
+    local function getGameFolderName()
+        local gameName = tostring(game.PlaceId or "UnknownGame")
+        pcall(function()
+            local MarketplaceService = game:GetService("MarketplaceService")
+            local info = MarketplaceService:GetProductInfo(game.PlaceId)
+            if info and info.Name then
+                gameName = info.Name
+            end
+        end)
+        return sanitizeName(gameName)
+    end
+
+    local configRoot = "UnknownHub"
+    local configGameFolder = configRoot .. "/" .. getGameFolderName()
+
+    local function fileApiAvailable()
+        return type(isfolder) == "function" and type(makefolder) == "function" and type(listfiles) == "function" and type(readfile) == "function" and type(writefile) == "function" and type(delfile) == "function"
+    end
+
+    local function ensureConfigFolders()
+        if not fileApiAvailable() then return false end
+        pcall(function()
+            if not isfolder(configRoot) then makefolder(configRoot) end
+            if not isfolder(configGameFolder) then makefolder(configGameFolder) end
+        end)
+        return isfolder(configGameFolder)
+    end
+
+    local function configPath(name)
+        return configGameFolder .. "/" .. sanitizeName(name) .. ".cfg"
+    end
+
+    local function encodeConfigKey(value)
+        return tostring(value):gsub("%%", "%%25"):gsub("|", "%%7C"):gsub("\n", "%%0A")
+    end
+
+    local function decodeConfigKey(value)
+        return tostring(value):gsub("%%0A", "\n"):gsub("%%7C", "|"):gsub("%%25", "%%")
+    end
+
+    local function serializeConfig()
+        local lines = {"UnknownHubConfigV1"}
+        for key, value in pairs(configValues) do
+            local valueType = type(value) == "boolean" and "B" or (type(value) == "number" and "N" or "S")
+            table.insert(lines, valueType .. "|" .. encodeConfigKey(key) .. "|" .. tostring(value))
+        end
+        return table.concat(lines, "\n")
+    end
+
+    local function applyConfig(contents)
+        for line in string.gmatch(contents or "", "[^\r\n]+") do
+            local valueType, encodedKey, rawValue = line:match("^([BNS])|([^|]+)|(.+)$")
+            if valueType and encodedKey and rawValue then
+                local setter = configSetters[decodeConfigKey(encodedKey)]
+                if setter then
+                    local value
+                    if valueType == "B" then
+                        value = rawValue == "true"
+                    elseif valueType == "N" then
+                        value = tonumber(rawValue)
+                    else
+                        value = rawValue
+                    end
+                    if value ~= nil then pcall(setter, value) end
+                end
+            end
+        end
+    end
+
+    local function getConfigNames()
+        local names = {}
+        if not ensureConfigFolders() then return names end
+        pcall(function()
+            for _, path in ipairs(listfiles(configGameFolder)) do
+                local name = tostring(path):match("([^/\\]+)%.cfg$")
+                if name then table.insert(names, name) end
+            end
+        end)
+        table.sort(names)
+        return names
+    end
+
+    ensureConfigTab = function()
+        if configTabPage then return end
+
+        configTabPage = createTabButton("Config", "Config", nil, false)
+        local nameBox = createTextBox(configTabPage, "Config name")
+        local status = Instance.new("TextLabel")
+        status.Size = UDim2.new(1, -10, 0, 22)
+        status.BackgroundTransparency = 1
+        status.Text = fileApiAvailable() and ("Folder: " .. configGameFolder) or "Executor file APIs are unavailable"
+        status.TextColor3 = Color3.fromRGB(155, 165, 185)
+        status.Font = Enum.Font.Gotham
+        status.TextSize = 10
+        status.TextXAlignment = Enum.TextXAlignment.Left
+        status.Parent = configTabPage
+
+        local configList = CreateList(configTabPage, "Saved Configs", {}, 150, true)
+        local selectedName
+
+        local function setStatus(message, isError)
+            status.Text = message
+            status.TextColor3 = isError and Color3.fromRGB(255, 120, 120) or Color3.fromRGB(155, 220, 170)
+        end
+
+        local function refreshConfigs()
+            for _, entry in ipairs(configList.Items) do
+                if entry.Row and entry.Row.Parent then entry.Row:Destroy() end
+            end
+            configList.Items = {}
+            configList.SelectedItem = nil
+            configList.SelectedRowSetter = nil
+            for _, name in ipairs(getConfigNames()) do
+                configList:AddItem(name, "Click to select", function()
+                    selectedName = name
+                    nameBox.Text = name
+                    setStatus("Selected " .. name, false)
+                end)
+            end
+        end
+
+        local function saveConfig(overwrite)
+            local name = sanitizeName(nameBox.Text)
+            if nameBox.Text == "" then
+                setStatus("Enter a config name first", true)
+                return
+            end
+            if not ensureConfigFolders() then
+                setStatus("Executor file APIs are unavailable", true)
+                return
+            end
+            local path = configPath(name)
+            if not overwrite and type(isfile) == "function" and isfile(path) then
+                setStatus("Already exists; use Overwrite", true)
+                return
+            end
+            local ok = pcall(writefile, path, serializeConfig())
+            setStatus(ok and ((overwrite and "Overwritten " or "Saved ") .. name) or "Could not write config", not ok)
+            if ok then selectedName = name; refreshConfigs() end
+        end
+
+        createButton(configTabPage, "Save Config", function() saveConfig(false) end)
+        createButton(configTabPage, "Overwrite Config", function() saveConfig(true) end)
+        createButton(configTabPage, "Load Config", function()
+            local name = selectedName or sanitizeName(nameBox.Text)
+            if not ensureConfigFolders() then setStatus("Executor file APIs are unavailable", true); return end
+            local ok, contents = pcall(readfile, configPath(name))
+            if ok and contents then
+                applyConfig(contents)
+                setStatus("Loaded " .. name, false)
+            else
+                setStatus("Config not found", true)
+            end
+        end)
+        createButton(configTabPage, "Rename Config", function()
+            local oldName = selectedName
+            local newName = sanitizeName(nameBox.Text)
+            if not oldName or newName == "" or oldName == newName then
+                setStatus("Select a config and enter a new name", true)
+                return
+            end
+            if not ensureConfigFolders() then setStatus("Executor file APIs are unavailable", true); return end
+            local ok, contents = pcall(readfile, configPath(oldName))
+            if not ok or not contents or (type(isfile) == "function" and isfile(configPath(newName))) then
+                setStatus("Rename target already exists or source is missing", true)
+                return
+            end
+            local wrote = pcall(writefile, configPath(newName), contents)
+            if wrote then pcall(delfile, configPath(oldName)); selectedName = newName; nameBox.Text = newName; refreshConfigs() end
+            setStatus(wrote and ("Renamed to " .. newName) or "Could not rename config", not wrote)
+        end)
+        createButton(configTabPage, "Delete Config", function()
+            local name = selectedName or sanitizeName(nameBox.Text)
+            if not ensureConfigFolders() then setStatus("Executor file APIs are unavailable", true); return end
+            local ok = pcall(delfile, configPath(name))
+            selectedName = nil
+            nameBox.Text = ""
+            refreshConfigs()
+            setStatus(ok and ("Deleted " .. name) or "Could not delete config", not ok)
+        end)
+
+        createThemeEditor(configTabPage)
+        refreshConfigs()
     end
 
     local function GetItemFromList(listName, parent, createIfMissing)
