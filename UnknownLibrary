@@ -680,12 +680,12 @@ return function(opts)
         subtitle.Parent = item
 
         item.MouseEnter:Connect(function()
-            local color = selected and Color3.fromRGB(30, 62, 52) or Color3.fromRGB(35, 42, 60)
+            local color = selected and Color3.fromRGB(38, 78, 58) or Color3.fromRGB(35, 42, 60)
             TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = color}):Play()
         end)
 
         item.MouseLeave:Connect(function()
-            local color = selected and Color3.fromRGB(24, 52, 44) or Color3.fromRGB(24, 28, 40)
+            local color = selected and Color3.fromRGB(30, 68, 50) or Color3.fromRGB(24, 28, 40)
             TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = color}):Play()
         end)
 
@@ -694,7 +694,7 @@ return function(opts)
         end)
         return item, function(isSelected)
             selected = isSelected == true
-            local color = selected and Color3.fromRGB(24, 52, 44) or Color3.fromRGB(24, 28, 40)
+            local color = selected and Color3.fromRGB(30, 68, 50) or Color3.fromRGB(24, 28, 40)
             local accentColor = selected and Color3.fromRGB(70, 220, 120) or currentThemeColor
             TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = color}):Play()
             TweenService:Create(accent, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = accentColor}):Play()
@@ -842,8 +842,22 @@ return function(opts)
             Title = itemTitle,
             Items = {},
             AddItem = nil,
+            SelectedRowSetter = nil,
             SetSelected = function(value)
+                if listObject.SelectedRowSetter then
+                    listObject.SelectedRowSetter(false)
+                end
                 listObject.SelectedItem = value
+                listObject.SelectedRowSetter = nil
+                for _, entryData in ipairs(listObject.Items) do
+                    if entryData == value or entryData.Name == value then
+                        listObject.SelectedRowSetter = entryData.RowSetter
+                        if listObject.SelectedRowSetter then
+                            listObject.SelectedRowSetter(true)
+                        end
+                        break
+                    end
+                end
                 return value
             end,
             BringSelected = function()
@@ -886,6 +900,7 @@ return function(opts)
             end)
 
             entryData.Row = row
+            entryData.RowSetter = setRowSelected
             table.insert(listObject.Items, entryData)
             return row
         end
