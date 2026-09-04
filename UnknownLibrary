@@ -696,6 +696,12 @@ return function(opts)
         local itemValues = items or {}
         local itemHeight = height or 160
         local itemExpanded = expanded ~= false
+        local selectionCallback = type(height) == "function" and height or nil
+
+        if selectionCallback then
+            itemHeight = 160
+            itemExpanded = true
+        end
 
         if type(parentTarget) == "table" then
             itemValues = parentTarget
@@ -760,6 +766,8 @@ return function(opts)
         list.Position = UDim2.new(0, 0, 0, 28)
         list.BackgroundTransparency = 1
         list.ScrollBarThickness = 4
+        list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        list.CanvasSize = UDim2.new(0, 0, 0, 0)
         list.Visible = itemExpanded
         list.Parent = frame
 
@@ -811,6 +819,9 @@ return function(opts)
 
             local row = createListItem(list, entryData.Name, entryData.Desc, function()
                 listObject.SelectedItem = entryData
+                if selectionCallback then
+                    pcall(selectionCallback, entryData.Name, entryData)
+                end
                 if entryData.Callback then
                     pcall(entryData.Callback, entryData)
                 end
