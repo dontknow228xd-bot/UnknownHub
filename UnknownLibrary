@@ -440,7 +440,12 @@ return function(opts)
         end
 
         if name ~= "Config" and ensureConfigTab then
-            ensureConfigTab()
+            task.defer(function()
+                local ok, err = pcall(ensureConfigTab)
+                if not ok then
+                    warn("UnknownHub Config tab failed to initialize: " .. tostring(err))
+                end
+            end)
         end
 
         return page
