@@ -88,40 +88,59 @@ return function(opts)
         return c
     end
 
-    local function addWaveDecoration(parent)
-        if not parent then return end
-        parent.ClipsDescendants = true
+    local function startMainBackgroundWaves(parent)
+        if not parent then return nil end
 
-        local wave = Instance.new("TextLabel")
-        wave.Name = "FloatingWave"
-        wave.Size = UDim2.new(0, 76, 1, 0)
-        wave.Position = UDim2.new(1, -74, 0, 0)
-        wave.BackgroundTransparency = 1
-        wave.Text = ">  ~  >"
-        wave.TextColor3 = currentThemeColor
-        wave.TextTransparency = 0.68
-        wave.Font = Enum.Font.GothamBold
-        wave.TextSize = 13
-        wave.TextXAlignment = Enum.TextXAlignment.Center
-        wave.TextYAlignment = Enum.TextYAlignment.Center
-        wave.Active = false
-        wave.ZIndex = 1
-        wave.Parent = parent
+        local waveLayer = Instance.new("Frame")
+        waveLayer.Name = "MainBackgroundWaves"
+        waveLayer.Size = UDim2.new(1, 0, 1, 0)
+        waveLayer.Position = UDim2.new(0, 0, 0, 0)
+        waveLayer.BackgroundTransparency = 1
+        waveLayer.BorderSizePixel = 0
+        waveLayer.ClipsDescendants = true
+        waveLayer.Active = false
+        waveLayer.ZIndex = 0
+        waveLayer.Parent = parent
 
-        table.insert(themeUpdaters, function(themeColor)
-            if wave.Parent then wave.TextColor3 = themeColor end
-        end)
+        local function spawnArrow()
+            if not waveLayer.Parent then return end
+            local arrow = Instance.new("TextLabel")
+            arrow.Name = "FloatingWaveArrow"
+            arrow.Size = UDim2.new(0, 84, 0, 24)
+            arrow.AnchorPoint = Vector2.new(0.5, 0.5)
+            arrow.Position = UDim2.new(0, -48, math.random(8, 92) / 100, 0)
+            arrow.BackgroundTransparency = 1
+            arrow.Text = ">>>"
+            arrow.TextColor3 = currentThemeColor
+            arrow.TextTransparency = 0.72
+            arrow.Font = Enum.Font.GothamBlack
+            arrow.TextSize = math.random(12, 18)
+            arrow.TextXAlignment = Enum.TextXAlignment.Center
+            arrow.TextYAlignment = Enum.TextYAlignment.Center
+            arrow.Rotation = math.random(25, 35)
+            arrow.Active = false
+            arrow.ZIndex = 0
+            arrow.Parent = waveLayer
+
+            local travelTime = math.random(26, 40) / 10
+            local targetY = math.clamp(arrow.Position.Y.Scale + math.random(-8, 8) / 100, 0.05, 0.95)
+            local travel = TweenService:Create(arrow, TweenInfo.new(travelTime, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
+                Position = UDim2.new(1, 48, targetY, 0),
+            })
+            travel.Completed:Connect(function()
+                if arrow and arrow.Parent then arrow:Destroy() end
+            end)
+            travel:Play()
+        end
 
         task.spawn(function()
-            while wave.Parent do
-                wave.Position = UDim2.new(1, -82, 0, 0)
-                local tween = TweenService:Create(wave, TweenInfo.new(1.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                    Position = UDim2.new(1, -68, 0, 0),
-                })
-                tween:Play()
-                tween.Completed:Wait()
+            while waveLayer.Parent do
+                spawnArrow()
+                task.wait(0.38)
             end
         end)
+
+        return waveLayer
     end
 
     local function makeSmoothDraggable(guiFrame, dragHandle)
@@ -389,6 +408,7 @@ return function(opts)
     mainFrame.ClipsDescendants = true
     mainFrame.Visible = false
     mainFrame.Parent = screenGui
+    startMainBackgroundWaves(mainFrame)
 
     local mainStroke = Instance.new("UIStroke")
     mainStroke.Color = Color3.fromRGB(35, 45, 65)
@@ -524,7 +544,6 @@ return function(opts)
         btn.LayoutOrder = name == "Config" and 100000 or #tabButtons + 1
         btn.Parent = sidebar
         applyCorner(btn)
-        addWaveDecoration(btn)
 
         local lbl = Instance.new("TextLabel")
         lbl.Size = UDim2.new(1, -16, 1, 0)
@@ -571,7 +590,6 @@ return function(opts)
         item.TextXAlignment = Enum.TextXAlignment.Left
         item.Parent = parent
         applyCorner(item)
-        addWaveDecoration(item)
 
         local normalColor = Color3.fromRGB(24, 28, 40)
         local hoverColor = Color3.fromRGB(35, 42, 60)
@@ -825,7 +843,6 @@ return function(opts)
         frame.BorderSizePixel = 0
         frame.Parent = parent
         applyCorner(frame)
-        addWaveDecoration(frame)
 
         local frameStroke = Instance.new("UIStroke")
         frameStroke.Color = Color3.fromRGB(35, 42, 58)
@@ -1031,7 +1048,6 @@ return function(opts)
         item.Text = ""
         item.Parent = parent
         applyCorner(item)
-        addWaveDecoration(item)
         local selected = false
         local normalColor = Color3.fromRGB(24, 28, 40)
         local hoverColor = Color3.fromRGB(35, 42, 60)
@@ -1186,7 +1202,6 @@ return function(opts)
         titleBtn.TextXAlignment = Enum.TextXAlignment.Left
         titleBtn.Parent = frame
         applyCorner(titleBtn)
-        addWaveDecoration(titleBtn)
 
         local arrow = Instance.new("TextLabel")
         arrow.Name = "Arrow"
