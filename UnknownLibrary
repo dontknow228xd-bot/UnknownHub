@@ -1064,8 +1064,27 @@ return function(opts)
         accent.BorderSizePixel = 0
         accent.Parent = item
 
+        local checkbox = Instance.new("TextLabel")
+        checkbox.Name = "Checkbox"
+        checkbox.Size = UDim2.new(0, 16, 0, 16)
+        checkbox.Position = UDim2.new(1, -24, 0.5, -8)
+        checkbox.BackgroundColor3 = Color3.fromRGB(28, 34, 48)
+        checkbox.BorderSizePixel = 0
+        checkbox.Text = ""
+        checkbox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        checkbox.Font = Enum.Font.GothamBold
+        checkbox.TextSize = 12
+        checkbox.TextXAlignment = Enum.TextXAlignment.Center
+        checkbox.TextYAlignment = Enum.TextYAlignment.Center
+        checkbox.Parent = item
+        applyCorner(checkbox)
+        local checkboxStroke = Instance.new("UIStroke")
+        checkboxStroke.Color = Color3.fromRGB(75, 85, 105)
+        checkboxStroke.Thickness = 1
+        checkboxStroke.Parent = checkbox
+
         local title = Instance.new("TextLabel")
-        title.Size = noSubtitle and UDim2.new(1, -20, 1, 0) or UDim2.new(1, -20, 0, 18)
+        title.Size = noSubtitle and UDim2.new(1, -42, 1, 0) or UDim2.new(1, -42, 0, 18)
         title.Position = noSubtitle and UDim2.new(0, 12, 0, 0) or UDim2.new(0, 12, 0, 7)
         title.BackgroundTransparency = 1
         title.Text = titleText
@@ -1078,7 +1097,7 @@ return function(opts)
         registerThemeText(title)
 
         local subtitle = Instance.new("TextLabel")
-        subtitle.Size = UDim2.new(1, -20, 0, 15)
+        subtitle.Size = UDim2.new(1, -42, 0, 15)
         subtitle.Position = UDim2.new(0, 12, 0, 22)
         subtitle.BackgroundTransparency = 1
         subtitle.Text = subtitleText or ""
@@ -1095,6 +1114,9 @@ return function(opts)
             local transition = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
             TweenService:Create(item, transition, {BackgroundColor3 = targetColor}):Play()
             TweenService:Create(accent, transition, {BackgroundColor3 = targetAccentColor}):Play()
+            checkbox.Text = selected and "✓" or ""
+            checkbox.BackgroundColor3 = selected and selectedAccentColor or Color3.fromRGB(28, 34, 48)
+            checkboxStroke.Color = selected and selectedAccentColor or Color3.fromRGB(75, 85, 105)
         end
         table.insert(themeUpdaters, function(themeColor)
             normalAccentColor = themeColor
@@ -1126,12 +1148,13 @@ return function(opts)
         return nil
     end
 
-    local function CreateList(parent, title, items, height, expanded)
+    local function CreateList(parent, title, items, height, expanded, selectionOptions)
         local parentTarget = parent
         local itemTitle = title or "List"
         local itemValues = items or {}
         local itemHeight = height or 160
         local itemExpanded = expanded ~= false
+        local multiSelect = selectionOptions == true or (type(selectionOptions) == "table" and (selectionOptions.MultiSelect == true or selectionOptions.multiSelect == true))
         local itemBuilder = type(items) == "function" and items or nil
         local selectionCallback = type(height) == "function" and height or nil
 
@@ -1259,11 +1282,24 @@ return function(opts)
             Frame = frame,
             List = list,
             SelectedItem = nil,
+            SelectedItems = {},
+            MultiSelect = multiSelect,
             Title = itemTitle,
             Items = {},
             AddItem = nil,
             SelectedRowSetter = nil,
             SetSelected = function(value)
+                if listObject.MultiSelect then
+                    local values = {}
+                    if value ~= nil then
+                        if type(value) == "table" and value.Name == nil then
+                            values = value
+                        else
+                            values = {value}
+                        end
+                    end
+                    return listObject.SetSelectedItems(values)
+                end
                 if listObject.SelectedRowSetter then
                     listObject.SelectedRowSetter(false)
                 end
@@ -1281,13 +1317,68 @@ return function(opts)
                 end
                 return value
             end,
+            SetSelectedItems = function(values)
+                if not listObject.MultiSelect then
+                    local value = type(values) == "table" and values[1] or values
+                    return listObject.SetSelected(value)
+                end
+                values = type(values) == "table" and values or {}
+                listObject.SelectedItem = nil
+                listObject.SelectedItems = {}
+                local selectedNames = {}
+                for _, entryData in ipairs(listObject.Items) do
+                    local isSelected = false
+                    for _, value in ipairs(values) do
+                        if entryData == value or entryData.Name == value or (type(value) == "table" and entryData.Name == value.Name) then
+                            isSelected = true
+                            break
+                        end
+                    end
+                    entryData.RowSetter(isSelected)
+                    if isSelected then
+                        table.insert(listObject.SelectedItems, entryData)
+                        table.insert(selectedNames, entryData.Name)
+                    end
+                end
+                listObject.SelectedItem = listObject.SelectedItems[1]
+                configValues["list:" .. tostring(itemTitle)] = table.concat(selectedNames, "\t")
+                return listObject.SelectedItems
+            end,
+            ToggleSelected = function(value)
+                if not listObject.MultiSelect then
+                    return listObject.SetSelected(listObject.SelectedItem == value and nil or value)
+                end
+                local values = {}
+                for _, entryData in ipairs(listObject.SelectedItems) do
+                    if entryData ~= value and entryData.Name ~= value then
+                        table.insert(values, entryData)
+                    end
+                end
+                local alreadySelected = false
+                for _, entryData in ipairs(listObject.SelectedItems) do
+                    if entryData == value or entryData.Name == value then
+                        alreadySelected = true
+                        break
+                    end
+                end
+                if not alreadySelected then table.insert(values, value) end
+                return listObject.SetSelectedItems(values)
+            end,
             BringSelected = function()
-                return BringSelectedItem(listObject)
+                return listObject.MultiSelect and listObject.SelectedItems or BringSelectedItem(listObject)
             end,
         }
         listRegistry[tostring(itemTitle)] = listObject
         configSetters["list:" .. tostring(itemTitle)] = function(value)
-            listObject.SetSelected(value)
+            if listObject.MultiSelect then
+                local values = {}
+                for name in string.gmatch(tostring(value), "[^\t]+") do
+                    table.insert(values, name)
+                end
+                listObject.SetSelectedItems(values)
+            else
+                listObject.SetSelected(value)
+            end
         end
 
         local function addEntry(entry)
@@ -1309,7 +1400,9 @@ return function(opts)
             if not entryData then return end
 
             local row, setRowSelected = createListItem(list, entryData.Name, entryData.Desc, function()
-                if listObject.SelectedItem == entryData then
+                if listObject.MultiSelect then
+                    listObject.ToggleSelected(entryData)
+                elseif listObject.SelectedItem == entryData then
                     listObject.SetSelected(nil)
                 else
                     listObject.SetSelected(entryData)
