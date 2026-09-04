@@ -1068,7 +1068,7 @@ return function(opts)
         checkbox.Name = "Checkbox"
         checkbox.Size = UDim2.new(0, 16, 0, 16)
         checkbox.Position = UDim2.new(1, -24, 0.5, -8)
-        checkbox.BackgroundColor3 = Color3.fromRGB(28, 34, 48)
+        checkbox.BackgroundColor3 = Color3.fromRGB(18, 22, 32)
         checkbox.BorderSizePixel = 0
         checkbox.Text = ""
         checkbox.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1076,11 +1076,12 @@ return function(opts)
         checkbox.TextSize = 12
         checkbox.TextXAlignment = Enum.TextXAlignment.Center
         checkbox.TextYAlignment = Enum.TextYAlignment.Center
+        checkbox.ZIndex = 3
         checkbox.Parent = item
         applyCorner(checkbox)
         local checkboxStroke = Instance.new("UIStroke")
-        checkboxStroke.Color = Color3.fromRGB(75, 85, 105)
-        checkboxStroke.Thickness = 1
+        checkboxStroke.Color = currentThemeColor
+        checkboxStroke.Thickness = 1.5
         checkboxStroke.Parent = checkbox
 
         local title = Instance.new("TextLabel")
@@ -1115,8 +1116,8 @@ return function(opts)
             TweenService:Create(item, transition, {BackgroundColor3 = targetColor}):Play()
             TweenService:Create(accent, transition, {BackgroundColor3 = targetAccentColor}):Play()
             checkbox.Text = selected and "✓" or ""
-            checkbox.BackgroundColor3 = selected and selectedAccentColor or Color3.fromRGB(28, 34, 48)
-            checkboxStroke.Color = selected and selectedAccentColor or Color3.fromRGB(75, 85, 105)
+            checkbox.BackgroundColor3 = selected and selectedAccentColor or Color3.fromRGB(18, 22, 32)
+            checkboxStroke.Color = selected and selectedAccentColor or normalAccentColor
         end
         table.insert(themeUpdaters, function(themeColor)
             normalAccentColor = themeColor
@@ -1657,29 +1658,62 @@ return function(opts)
             end)
         end)
 
-        local speedBox = createConfigActionRow("Apply WalkSpeed", "WalkSpeed", true, function() end, utilityTabPage)
-        local jumpBox = createConfigActionRow("Apply JumpPower", "JumpPower", true, function() end, utilityTabPage)
-        local speedButton = speedBox.Parent.Parent:FindFirstChildWhichIsA("TextButton")
-        local jumpButton = jumpBox.Parent.Parent:FindFirstChildWhichIsA("TextButton")
-        speedButton.MouseButton1Click:Connect(function()
-            local value = tonumber(speedBox.Text)
-            local humanoid = getCharacterHumanoid()
-            if value and humanoid then
-                humanoid.WalkSpeed = math.clamp(value, 0, 500)
-                setUtilityStatus("WalkSpeed set to " .. tostring(math.clamp(value, 0, 500)), false)
-            else
-                setUtilityStatus("Enter a valid WalkSpeed", true)
+        local speedBox = createTextBox(utilityTabPage, "WalkSpeed")
+        local jumpBox = createTextBox(utilityTabPage, "JumpPower")
+        local speedOriginal
+        local jumpOriginal
+        local speedRun = 0
+        local jumpRun = 0
+
+        createToggle(utilityTabPage, "Keep WalkSpeed", false, function(enabled)
+            speedRun = speedRun + 1
+            local runId = speedRun
+            local value = math.clamp(tonumber(speedBox.Text) or 16, 0, 500)
+            if enabled then
+                local humanoid = getCharacterHumanoid()
+                speedOriginal = humanoid and humanoid.WalkSpeed or 16
+                task.spawn(function()
+                    while runId == speedRun and enabled do
+                        local character = LocalPlayer.Character
+                        local currentHumanoid = character and character:FindFirstChildOfClass("Humanoid")
+                        if currentHumanoid then currentHumanoid.WalkSpeed = value end
+                        task.wait(0.15)
+                    end
+                end)
+                setUtilityStatus("WalkSpeed locked at " .. tostring(value), false)
+            elseif speedOriginal then
+                local humanoid = getCharacterHumanoid()
+                if humanoid then humanoid.WalkSpeed = speedOriginal end
+                setUtilityStatus("WalkSpeed disabled", false)
             end
         end)
-        jumpButton.MouseButton1Click:Connect(function()
-            local value = tonumber(jumpBox.Text)
-            local humanoid = getCharacterHumanoid()
-            if value and humanoid then
-                humanoid.UseJumpPower = true
-                humanoid.JumpPower = math.clamp(value, 0, 500)
-                setUtilityStatus("JumpPower set to " .. tostring(math.clamp(value, 0, 500)), false)
-            else
-                setUtilityStatus("Enter a valid JumpPower", true)
+
+        createToggle(utilityTabPage, "Keep JumpPower", false, function(enabled)
+            jumpRun = jumpRun + 1
+            local runId = jumpRun
+            local value = math.clamp(tonumber(jumpBox.Text) or 50, 0, 500)
+            if enabled then
+                local humanoid = getCharacterHumanoid()
+                jumpOriginal = humanoid and humanoid.JumpPower or 50
+                task.spawn(function()
+                    while runId == jumpRun and enabled do
+                        local character = LocalPlayer.Character
+                        local currentHumanoid = character and character:FindFirstChildOfClass("Humanoid")
+                        if currentHumanoid then
+                            currentHumanoid.UseJumpPower = true
+                            currentHumanoid.JumpPower = value
+                        end
+                        task.wait(0.15)
+                    end
+                end)
+                setUtilityStatus("JumpPower locked at " .. tostring(value), false)
+            elseif jumpOriginal then
+                local humanoid = getCharacterHumanoid()
+                if humanoid then
+                    humanoid.UseJumpPower = true
+                    humanoid.JumpPower = jumpOriginal
+                end
+                setUtilityStatus("JumpPower disabled", false)
             end
         end)
 
