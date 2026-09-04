@@ -102,41 +102,41 @@ return function(opts)
         waveLayer.ZIndex = 0
         waveLayer.Parent = parent
 
-        local function spawnArrow()
+        local function spawnZigZag()
             if not waveLayer.Parent then return end
-            local arrow = Instance.new("TextLabel")
-            arrow.Name = "FloatingWaveArrow"
-            arrow.Size = UDim2.new(0, 84, 0, 24)
-            arrow.AnchorPoint = Vector2.new(0.5, 0.5)
-            arrow.Position = UDim2.new(0, -48, math.random(8, 92) / 100, 0)
-            arrow.BackgroundTransparency = 1
-            arrow.Text = ">>>"
-            arrow.TextColor3 = currentThemeColor
-            arrow.TextTransparency = 0.72
-            arrow.Font = Enum.Font.GothamBlack
-            arrow.TextSize = math.random(12, 18)
-            arrow.TextXAlignment = Enum.TextXAlignment.Center
-            arrow.TextYAlignment = Enum.TextYAlignment.Center
-            arrow.Rotation = math.random(25, 35)
-            arrow.Active = false
-            arrow.ZIndex = 0
-            arrow.Parent = waveLayer
+            local zigZag = Instance.new("TextLabel")
+            zigZag.Name = "FloatingZigZag"
+            zigZag.Size = UDim2.new(0, 300, 0, 96)
+            zigZag.AnchorPoint = Vector2.new(0.5, 0.5)
+            zigZag.Position = UDim2.new(0, -160, math.random(12, 88) / 100, 0)
+            zigZag.BackgroundTransparency = 1
+            zigZag.Text = "╱╲╱╲"
+            zigZag.TextColor3 = currentThemeColor
+            zigZag.TextTransparency = 0.78
+            zigZag.Font = Enum.Font.GothamBlack
+            zigZag.TextSize = 76
+            zigZag.TextXAlignment = Enum.TextXAlignment.Center
+            zigZag.TextYAlignment = Enum.TextYAlignment.Center
+            zigZag.Rotation = math.random(30, 45)
+            zigZag.Active = false
+            zigZag.ZIndex = 0
+            zigZag.Parent = waveLayer
 
-            local travelTime = math.random(26, 40) / 10
-            local targetY = math.clamp(arrow.Position.Y.Scale + math.random(-8, 8) / 100, 0.05, 0.95)
-            local travel = TweenService:Create(arrow, TweenInfo.new(travelTime, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
-                Position = UDim2.new(1, 48, targetY, 0),
+            local travelTime = math.random(42, 58) / 10
+            local targetY = math.clamp(zigZag.Position.Y.Scale + math.random(-10, 10) / 100, 0.08, 0.92)
+            local travel = TweenService:Create(zigZag, TweenInfo.new(travelTime, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
+                Position = UDim2.new(1, 160, targetY, 0),
             })
             travel.Completed:Connect(function()
-                if arrow and arrow.Parent then arrow:Destroy() end
+                if zigZag and zigZag.Parent then zigZag:Destroy() end
             end)
             travel:Play()
         end
 
         task.spawn(function()
             while waveLayer.Parent do
-                spawnArrow()
-                task.wait(0.38)
+                spawnZigZag()
+                task.wait(1.15)
             end
         end)
 
