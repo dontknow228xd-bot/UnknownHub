@@ -511,7 +511,7 @@ return function(opts)
 
     local function createThemeEditor(parent)
         local section = Instance.new("Frame")
-        section.Size = UDim2.new(1, -10, 0, 242)
+        section.Size = UDim2.new(1, -10, 0, 260)
         section.BackgroundColor3 = Color3.fromRGB(18, 22, 32)
         section.BorderSizePixel = 0
         section.Parent = parent or contentArea
@@ -528,11 +528,13 @@ return function(opts)
         title.Parent = section
         registerThemeText(title)
 
-        local picker = Instance.new("Frame")
+        local picker = Instance.new("TextButton")
         picker.Size = UDim2.new(0, 190, 0, 190)
         picker.Position = UDim2.new(0, 8, 0, 34)
         picker.BackgroundColor3 = currentThemeColor
         picker.BorderSizePixel = 0
+        picker.Text = ""
+        picker.AutoButtonColor = false
         picker.Active = true
         picker.Parent = section
         applyCorner(picker)
@@ -547,7 +549,7 @@ return function(opts)
         blackOverlay.BackgroundColor3 = Color3.new(0, 0, 0)
         blackOverlay.BackgroundTransparency = 0
         blackOverlay.BorderSizePixel = 0
-        blackOverlay.Active = true
+        blackOverlay.Active = false
         blackOverlay.Parent = picker
         applyCorner(blackOverlay)
 
@@ -576,6 +578,7 @@ return function(opts)
         hueTrack.Text = ""
         hueTrack.AutoButtonColor = false
         hueTrack.BorderSizePixel = 0
+        hueTrack.Active = true
         hueTrack.Parent = section
         applyCorner(hueTrack)
 
@@ -655,7 +658,7 @@ return function(opts)
             local absoluteSize = target.AbsoluteSize
             local x = math.clamp((input.Position.X - absolutePosition.X) / math.max(1, absoluteSize.X), 0, 1)
             local y = math.clamp((input.Position.Y - absolutePosition.Y) / math.max(1, absoluteSize.Y), 0, 1)
-            if target == picker or target == blackOverlay then
+            if target == picker then
                 saturation = x
                 brightness = 1 - y
             else
@@ -672,7 +675,6 @@ return function(opts)
         end
 
         picker.InputBegan:Connect(function(input) beginDrag(picker, input) end)
-        blackOverlay.InputBegan:Connect(function(input) beginDrag(picker, input) end)
         hueTrack.InputBegan:Connect(function(input) beginDrag(hueTrack, input) end)
         UserInputService.InputChanged:Connect(function(input)
             if draggingTarget and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
