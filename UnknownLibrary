@@ -14,6 +14,7 @@ return function(opts)
     local allToggleSetters = {}
     local tabButtons = {}
     local tabPages = {}
+    local listRegistry = {}
 
     local function destroyOldGui()
         local parents = {CoreGui, LocalPlayer:FindFirstChild("PlayerGui")}
@@ -849,6 +850,7 @@ return function(opts)
                 return BringSelectedItem(listObject)
             end,
         }
+        listRegistry[tostring(itemTitle)] = listObject
 
         local function addEntry(entry)
             local entryData = nil
@@ -914,6 +916,18 @@ return function(opts)
         return listObject
     end
 
+    local function GetItemFromList(listName, parent, createIfMissing)
+        local name = tostring(listName or "List")
+        local existing = listRegistry[name]
+        if existing then
+            return existing
+        end
+        if createIfMissing == false then
+            return nil
+        end
+        return CreateList(parent or contentArea, name, {})
+    end
+
     return {
         gui = screenGui,
         frame = mainFrame,
@@ -935,6 +949,7 @@ return function(opts)
         CreateToggle = createToggle,
         CreateSlider = createSlider,
         CreateList = CreateList,
+        GetItemFromList = GetItemFromList,
         createTabButton = createTabButton,
         BringSelectedItem = BringSelectedItem,
         createPage = createPage,
