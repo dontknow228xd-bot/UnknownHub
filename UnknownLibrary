@@ -680,12 +680,12 @@ return function(opts)
         subtitle.Parent = item
 
         item.MouseEnter:Connect(function()
-            local color = selected and Color3.fromRGB(38, 78, 58) or Color3.fromRGB(35, 42, 60)
+            local color = selected and Color3.fromRGB(52, 120, 70) or Color3.fromRGB(35, 42, 60)
             TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = color}):Play()
         end)
 
         item.MouseLeave:Connect(function()
-            local color = selected and Color3.fromRGB(30, 68, 50) or Color3.fromRGB(24, 28, 40)
+            local color = selected and Color3.fromRGB(42, 100, 60) or Color3.fromRGB(24, 28, 40)
             TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = color}):Play()
         end)
 
@@ -694,10 +694,10 @@ return function(opts)
         end)
         return item, function(isSelected)
             selected = isSelected == true
-            local color = selected and Color3.fromRGB(30, 68, 50) or Color3.fromRGB(24, 28, 40)
-            local accentColor = selected and Color3.fromRGB(70, 220, 120) or currentThemeColor
-            TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = color}):Play()
-            TweenService:Create(accent, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = accentColor}):Play()
+            local color = selected and Color3.fromRGB(42, 100, 60) or Color3.fromRGB(24, 28, 40)
+            local accentColor = selected and Color3.fromRGB(90, 255, 135) or currentThemeColor
+            item.BackgroundColor3 = color
+            accent.BackgroundColor3 = accentColor
         end
     end
 
