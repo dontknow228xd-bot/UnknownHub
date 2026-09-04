@@ -13,6 +13,8 @@ return function(opts)
     local themeFrames = {}
     local themeUpdaters = {}
     local allToggleSetters = {}
+    local featureStoppers = {}
+    local disablingAll = false
     local tabButtons = {}
     local tabPages = {}
     local listRegistry = {}
@@ -21,6 +23,15 @@ return function(opts)
     local configTabPage = nil
     local configTabButton = nil
     local ensureConfigTab
+    local toggleKeyCode = Enum.KeyCode.RightControl
+    local toggleKeyButton
+    local capturingToggleKey = false
+
+    if typeof(opts.toggleKey) == "EnumItem" then
+        toggleKeyCode = opts.toggleKey
+    elseif type(opts.toggleKey) == "string" and Enum.KeyCode[opts.toggleKey] then
+        toggleKeyCode = Enum.KeyCode[opts.toggleKey]
+    end
 
     local function destroyOldGui()
         local parents = {CoreGui, LocalPlayer:FindFirstChild("PlayerGui")}
@@ -75,6 +86,42 @@ return function(opts)
         c.CornerRadius = UDim.new(0, 8)
         c.Parent = obj
         return c
+    end
+
+    local function addWaveDecoration(parent)
+        if not parent then return end
+        parent.ClipsDescendants = true
+
+        local wave = Instance.new("TextLabel")
+        wave.Name = "FloatingWave"
+        wave.Size = UDim2.new(0, 76, 1, 0)
+        wave.Position = UDim2.new(1, -74, 0, 0)
+        wave.BackgroundTransparency = 1
+        wave.Text = ">  ~  >"
+        wave.TextColor3 = currentThemeColor
+        wave.TextTransparency = 0.68
+        wave.Font = Enum.Font.GothamBold
+        wave.TextSize = 13
+        wave.TextXAlignment = Enum.TextXAlignment.Center
+        wave.TextYAlignment = Enum.TextYAlignment.Center
+        wave.Active = false
+        wave.ZIndex = 1
+        wave.Parent = parent
+
+        table.insert(themeUpdaters, function(themeColor)
+            if wave.Parent then wave.TextColor3 = themeColor end
+        end)
+
+        task.spawn(function()
+            while wave.Parent do
+                wave.Position = UDim2.new(1, -82, 0, 0)
+                local tween = TweenService:Create(wave, TweenInfo.new(1.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                    Position = UDim2.new(1, -68, 0, 0),
+                })
+                tween:Play()
+                tween.Completed:Wait()
+            end
+        end)
     end
 
     local function makeSmoothDraggable(guiFrame, dragHandle)
@@ -224,8 +271,17 @@ return function(opts)
         TweenService:Create(overlay, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.4}):Play()
         TweenService:Create(panel, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = originalPos, Size = UDim2.new(0, 240, 0, 120)}):Play()
 
-        TweenService:Create(warnScale, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Scale = 1.12}):Play()
-        TweenService:Create(warn, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Rotation = -12}):Play()
+        warnScale.Scale = 0.88
+        warn.Rotation = 8
+        task.spawn(function()
+            local growTween = TweenService:Create(warnScale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1.12})
+            local rockTween = TweenService:Create(warn, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Rotation = -12})
+            growTween:Play()
+            rockTween:Play()
+            growTween.Completed:Wait()
+            TweenService:Create(warnScale, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
+            TweenService:Create(warn, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Rotation = 0}):Play()
+        end)
 
         local overlayClosed = false
         local closeOverlay = function()
@@ -254,6 +310,8 @@ return function(opts)
     end
 
     local function DisableAllFeatureStates()
+        if disablingAll then return end
+        disablingAll = true
         pcall(function()
             for key, _ in pairs(getgenv()) do
                 if type(key) == "string" and key:sub(1, 4) == "ENI_" then
@@ -262,16 +320,25 @@ return function(opts)
             end
         end)
 
+        for _, stopper in ipairs(featureStoppers) do
+            pcall(function()
+                if stopper then stopper() end
+            end)
+            task.wait()
+        end
+
         for _, setter in ipairs(allToggleSetters) do
             pcall(function()
                 if setter then setter(false) end
             end)
+            task.wait()
         end
 
         local cleanup = getgenv().ENI_Cleanup or _G.ENI_Cleanup
         if cleanup then
             pcall(cleanup)
         end
+        disablingAll = false
     end
 
     local localParent = opts.parent or (gethui and gethui()) or CoreGui or LocalPlayer:WaitForChild("PlayerGui")
@@ -457,6 +524,7 @@ return function(opts)
         btn.LayoutOrder = name == "Config" and 100000 or #tabButtons + 1
         btn.Parent = sidebar
         applyCorner(btn)
+        addWaveDecoration(btn)
 
         local lbl = Instance.new("TextLabel")
         lbl.Size = UDim2.new(1, -16, 1, 0)
@@ -503,6 +571,7 @@ return function(opts)
         item.TextXAlignment = Enum.TextXAlignment.Left
         item.Parent = parent
         applyCorner(item)
+        addWaveDecoration(item)
 
         local normalColor = Color3.fromRGB(24, 28, 40)
         local hoverColor = Color3.fromRGB(35, 42, 60)
@@ -756,6 +825,7 @@ return function(opts)
         frame.BorderSizePixel = 0
         frame.Parent = parent
         applyCorner(frame)
+        addWaveDecoration(frame)
 
         local frameStroke = Instance.new("UIStroke")
         frameStroke.Color = Color3.fromRGB(35, 42, 58)
@@ -961,6 +1031,7 @@ return function(opts)
         item.Text = ""
         item.Parent = parent
         applyCorner(item)
+        addWaveDecoration(item)
         local selected = false
         local normalColor = Color3.fromRGB(24, 28, 40)
         local hoverColor = Color3.fromRGB(35, 42, 60)
@@ -1115,6 +1186,7 @@ return function(opts)
         titleBtn.TextXAlignment = Enum.TextXAlignment.Left
         titleBtn.Parent = frame
         applyCorner(titleBtn)
+        addWaveDecoration(titleBtn)
 
         local arrow = Instance.new("TextLabel")
         arrow.Name = "Arrow"
@@ -1569,6 +1641,22 @@ return function(opts)
             setStatus(ok and ("Deleted " .. name) or "Could not delete config", not ok)
         end)
 
+        configValues.toggleKey = toggleKeyCode.Name
+        configSetters.toggleKey = function(value)
+            local keyName = tostring(value)
+            local keyCode = Enum.KeyCode[keyName]
+            if keyCode then
+                toggleKeyCode = keyCode
+                if toggleKeyButton and toggleKeyButton.Parent then
+                    toggleKeyButton.Text = "  Toggle GUI Key: " .. toggleKeyCode.Name
+                end
+            end
+        end
+        toggleKeyButton = createButton(configTabPage, "Toggle GUI Key: " .. toggleKeyCode.Name, function()
+            capturingToggleKey = true
+            toggleKeyButton.Text = "  Press any keyboard key..."
+        end)
+
         renameNameBox = createConfigActionRow("Rename Config", "New config name", true, function()
             local oldName = selectedName
             local newName = sanitizeName(renameNameBox.Text)
@@ -1736,6 +1824,26 @@ return function(opts)
         return ok, result
     end
 
+    UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+
+        if capturingToggleKey then
+            if input.KeyCode ~= Enum.KeyCode.Unknown then
+                toggleKeyCode = input.KeyCode
+                capturingToggleKey = false
+                configValues.toggleKey = toggleKeyCode.Name
+                if toggleKeyButton and toggleKeyButton.Parent then
+                    toggleKeyButton.Text = "  Toggle GUI Key: " .. toggleKeyCode.Name
+                end
+            end
+            return
+        end
+
+        if input.KeyCode == toggleKeyCode then
+            screenGui.Enabled = not screenGui.Enabled
+        end
+    end)
+
     pcall(function()
         local LogService = game:GetService("LogService")
         LogService.MessageOut:Connect(function(message, messageType)
@@ -1773,6 +1881,12 @@ return function(opts)
         end,
         registerToggle = function(setter)
             if setter then table.insert(allToggleSetters, setter) end
+        end,
+        registerFeatureStopper = function(stopper)
+            if stopper then table.insert(featureStoppers, stopper) end
+        end,
+        RegisterFeatureStopper = function(stopper)
+            if stopper then table.insert(featureStoppers, stopper) end
         end,
         destroy = function()
             if screenGui then screenGui:Destroy() end
