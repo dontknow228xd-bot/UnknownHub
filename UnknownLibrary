@@ -645,6 +645,12 @@ return function(opts)
         item.Parent = parent
         applyCorner(item)
         local selected = false
+        local normalColor = Color3.fromRGB(24, 28, 40)
+        local hoverColor = Color3.fromRGB(35, 42, 60)
+        local selectedColor = Color3.fromRGB(42, 100, 60)
+        local selectedHoverColor = Color3.fromRGB(52, 120, 70)
+        local normalAccentColor = currentThemeColor
+        local selectedAccentColor = Color3.fromRGB(90, 255, 135)
 
         local noSubtitle = typeof(subtitleText) == "string" and string.lower(subtitleText) == "nope"
 
@@ -679,14 +685,17 @@ return function(opts)
         subtitle.Visible = not noSubtitle
         subtitle.Parent = item
 
+        local function paint(isHovered)
+            item.BackgroundColor3 = selected and (isHovered and selectedHoverColor or selectedColor) or (isHovered and hoverColor or normalColor)
+            accent.BackgroundColor3 = selected and selectedAccentColor or normalAccentColor
+        end
+
         item.MouseEnter:Connect(function()
-            local color = selected and Color3.fromRGB(52, 120, 70) or Color3.fromRGB(35, 42, 60)
-            TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = color}):Play()
+            paint(true)
         end)
 
         item.MouseLeave:Connect(function()
-            local color = selected and Color3.fromRGB(42, 100, 60) or Color3.fromRGB(24, 28, 40)
-            TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = color}):Play()
+            paint(false)
         end)
 
         item.MouseButton1Click:Connect(function()
@@ -694,10 +703,7 @@ return function(opts)
         end)
         return item, function(isSelected)
             selected = isSelected == true
-            local color = selected and Color3.fromRGB(42, 100, 60) or Color3.fromRGB(24, 28, 40)
-            local accentColor = selected and Color3.fromRGB(90, 255, 135) or currentThemeColor
-            item.BackgroundColor3 = color
-            accent.BackgroundColor3 = accentColor
+            paint(false)
         end
     end
 
@@ -885,12 +891,11 @@ return function(opts)
             if not entryData then return end
 
             local row, setRowSelected = createListItem(list, entryData.Name, entryData.Desc, function()
-                if listObject.SelectedRowSetter then
-                    listObject.SelectedRowSetter(false)
+                if listObject.SelectedItem == entryData then
+                    listObject.SetSelected(nil)
+                else
+                    listObject.SetSelected(entryData)
                 end
-                listObject.SelectedItem = entryData
-                listObject.SelectedRowSetter = setRowSelected
-                setRowSelected(true)
                 if selectionCallback then
                     pcall(selectionCallback, entryData.Name, entryData)
                 end
