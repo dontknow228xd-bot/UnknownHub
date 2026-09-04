@@ -557,6 +557,7 @@ return function(opts)
         track.BackgroundColor3 = Color3.fromRGB(48, 54, 70)
         track.Text = ""
         track.AutoButtonColor = false
+        track.Active = true
         track.BorderSizePixel = 0
         track.Parent = frame
         applyCorner(track)
@@ -564,6 +565,7 @@ return function(opts)
         local fill = Instance.new("Frame")
         fill.BackgroundColor3 = currentThemeColor
         fill.BorderSizePixel = 0
+        fill.Active = false
         fill.Parent = track
         applyCorner(fill)
 
@@ -572,6 +574,7 @@ return function(opts)
         knob.AnchorPoint = Vector2.new(0.5, 0.5)
         knob.Position = UDim2.new(0, 0, 0.5, 0)
         knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        knob.Active = false
         knob.BorderSizePixel = 0
         knob.Parent = track
         applyCorner(knob)
@@ -611,6 +614,12 @@ return function(opts)
             end
         end)
 
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+            end
+        end)
+
         UserInputService.InputChanged:Connect(function(input)
             if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                 updateFromInput(input)
@@ -634,6 +643,7 @@ return function(opts)
         item.Text = ""
         item.Parent = parent
         applyCorner(item)
+        local selected = false
 
         local noSubtitle = typeof(subtitleText) == "string" and string.lower(subtitleText) == "nope"
 
@@ -669,17 +679,25 @@ return function(opts)
         subtitle.Parent = item
 
         item.MouseEnter:Connect(function()
-            TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(35, 42, 60)}):Play()
+            local color = selected and Color3.fromRGB(30, 62, 52) or Color3.fromRGB(35, 42, 60)
+            TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = color}):Play()
         end)
 
         item.MouseLeave:Connect(function()
-            TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(24, 28, 40)}):Play()
+            local color = selected and Color3.fromRGB(24, 52, 44) or Color3.fromRGB(24, 28, 40)
+            TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = color}):Play()
         end)
 
         item.MouseButton1Click:Connect(function()
             if callback then pcall(callback) end
         end)
-        return item
+        return item, function(isSelected)
+            selected = isSelected == true
+            local color = selected and Color3.fromRGB(24, 52, 44) or Color3.fromRGB(24, 28, 40)
+            local accentColor = selected and Color3.fromRGB(70, 220, 120) or currentThemeColor
+            TweenService:Create(item, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = color}):Play()
+            TweenService:Create(accent, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = accentColor}):Play()
+        end
     end
 
     local function BringSelectedItem(list)
@@ -850,8 +868,13 @@ return function(opts)
 
             if not entryData then return end
 
-            local row = createListItem(list, entryData.Name, entryData.Desc, function()
+            local row, setRowSelected = createListItem(list, entryData.Name, entryData.Desc, function()
+                if listObject.SelectedRowSetter then
+                    listObject.SelectedRowSetter(false)
+                end
                 listObject.SelectedItem = entryData
+                listObject.SelectedRowSetter = setRowSelected
+                setRowSelected(true)
                 if selectionCallback then
                     pcall(selectionCallback, entryData.Name, entryData)
                 end
@@ -868,6 +891,10 @@ return function(opts)
         listObject.AddItem = function(name, subtitle, callback)
             if type(name) == "table" then
                 return addEntry(name)
+            end
+            if type(subtitle) == "function" and callback == nil then
+                callback = subtitle
+                subtitle = nil
             end
             return addEntry({
                 Name = name,
