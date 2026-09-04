@@ -1208,7 +1208,15 @@ return function(opts)
             return row
         end
 
-        listObject.AddItem = function(name, subtitle, callback)
+        listObject.AddItem = function(selfOrName, nameOrSubtitle, subtitleOrCallback, callback)
+            local name = selfOrName
+            local subtitle = nameOrSubtitle
+            if selfOrName == listObject then
+                name = nameOrSubtitle
+                subtitle = subtitleOrCallback
+            else
+                callback = subtitleOrCallback
+            end
             if type(name) == "table" then
                 return addEntry(name)
             end
@@ -1341,11 +1349,27 @@ return function(opts)
         local saveNameBox
         local renameNameBox
 
-        local function createConfigActionRow(buttonText, boxPlaceholder, boxOnLeft, callback)
+        local utilityTabPage = createTabButton("Utilities", "Utilities", nil, false)
+        local utilityStatus = Instance.new("TextLabel")
+        utilityStatus.Size = UDim2.new(1, -10, 0, 22)
+        utilityStatus.BackgroundTransparency = 1
+        utilityStatus.Text = "Ready"
+        utilityStatus.TextColor3 = Color3.fromRGB(155, 165, 185)
+        utilityStatus.Font = Enum.Font.Gotham
+        utilityStatus.TextSize = 10
+        utilityStatus.TextXAlignment = Enum.TextXAlignment.Left
+        utilityStatus.Parent = utilityTabPage
+
+        local function setUtilityStatus(message, isError)
+            utilityStatus.Text = message
+            utilityStatus.TextColor3 = isError and Color3.fromRGB(255, 120, 120) or Color3.fromRGB(155, 220, 170)
+        end
+
+        local function createConfigActionRow(buttonText, boxPlaceholder, boxOnLeft, callback, targetPage)
             local row = Instance.new("Frame")
             row.Size = UDim2.new(1, -10, 0, 38)
             row.BackgroundTransparency = 1
-            row.Parent = configTabPage
+            row.Parent = targetPage or configTabPage
 
             local button = createButton(row, buttonText, callback)
             button.Size = UDim2.new(0.46, -4, 1, 0)
@@ -1357,6 +1381,94 @@ return function(opts)
             boxFrame.Position = boxOnLeft and UDim2.new(0, 0, 0, 0) or UDim2.new(0.46, 4, 0, 0)
             return box
         end
+
+        local function getCharacterHumanoid()
+            local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+            return character and character:FindFirstChildOfClass("Humanoid")
+        end
+
+        createButton(utilityTabPage, "Reset Character", function()
+            local humanoid = getCharacterHumanoid()
+            if humanoid then
+                humanoid.Health = 0
+                setUtilityStatus("Character reset", false)
+            else
+                setUtilityStatus("Humanoid not found", true)
+            end
+        end)
+
+        createButton(utilityTabPage, "Rejoin Server", function()
+            local TeleportService = game:GetService("TeleportService")
+            setUtilityStatus("Rejoining...", false)
+            pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+        end)
+
+        createButton(utilityTabPage, "Server Hop", function()
+            task.spawn(function()
+                setUtilityStatus("Searching for a server...", false)
+                local HttpService = game:GetService("HttpService")
+                local url = "https://games.roblox.com/v1/games/" .. tostring(game.PlaceId) .. "/servers/Public?sortOrder=Asc&limit=100"
+                local ok, response = pcall(function() return game:HttpGet(url) end)
+                if not ok or not response then
+                    setUtilityStatus("Could not fetch servers", true)
+                    return
+                end
+                local decodedOk, result = pcall(function() return HttpService:JSONDecode(response) end)
+                if not decodedOk or not result or not result.data then
+                    setUtilityStatus("Invalid server response", true)
+                    return
+                end
+                for _, server in ipairs(result.data) do
+                    if server.id and server.id ~= game.JobId and server.playing < server.maxPlayers then
+                        setUtilityStatus("Joining server...", false)
+                        pcall(function()
+                            game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, server.id, LocalPlayer)
+                        end)
+                        return
+                    end
+                end
+                setUtilityStatus("No available server found", true)
+            end)
+        end)
+
+        createButton(utilityTabPage, "Execute Infinite Yield", function()
+            task.spawn(function()
+                setUtilityStatus("Loading Infinite Yield...", false)
+                local ok, err = pcall(function()
+                    local source = game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source")
+                    local execute = loadstring(source)
+                    assert(execute, "Infinite Yield did not compile")
+                    execute()
+                end)
+                setUtilityStatus(ok and "Infinite Yield executed" or ("Infinite Yield failed: " .. tostring(err)), not ok)
+            end)
+        end)
+
+        local speedBox = createConfigActionRow("Apply WalkSpeed", "WalkSpeed", true, function() end, utilityTabPage)
+        local jumpBox = createConfigActionRow("Apply JumpPower", "JumpPower", true, function() end, utilityTabPage)
+        local speedButton = speedBox.Parent.Parent:FindFirstChildWhichIsA("TextButton")
+        local jumpButton = jumpBox.Parent.Parent:FindFirstChildWhichIsA("TextButton")
+        speedButton.MouseButton1Click:Connect(function()
+            local value = tonumber(speedBox.Text)
+            local humanoid = getCharacterHumanoid()
+            if value and humanoid then
+                humanoid.WalkSpeed = math.clamp(value, 0, 500)
+                setUtilityStatus("WalkSpeed set to " .. tostring(math.clamp(value, 0, 500)), false)
+            else
+                setUtilityStatus("Enter a valid WalkSpeed", true)
+            end
+        end)
+        jumpButton.MouseButton1Click:Connect(function()
+            local value = tonumber(jumpBox.Text)
+            local humanoid = getCharacterHumanoid()
+            if value and humanoid then
+                humanoid.UseJumpPower = true
+                humanoid.JumpPower = math.clamp(value, 0, 500)
+                setUtilityStatus("JumpPower set to " .. tostring(math.clamp(value, 0, 500)), false)
+            else
+                setUtilityStatus("Enter a valid JumpPower", true)
+            end
+        end)
 
         local function setStatus(message, isError)
             status.Text = message
