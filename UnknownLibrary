@@ -1067,7 +1067,7 @@ return function(opts)
         local checkbox = Instance.new("TextLabel")
         checkbox.Name = "Checkbox"
         checkbox.Size = UDim2.new(0, 20, 0, 20)
-        checkbox.Position = UDim2.new(0, 9, 0.5, -10)
+        checkbox.Position = UDim2.new(1, -29, 0.5, -10)
         checkbox.BackgroundColor3 = Color3.fromRGB(12, 16, 24)
         checkbox.BorderSizePixel = 0
         checkbox.Text = ""
@@ -1099,7 +1099,7 @@ return function(opts)
 
         local title = Instance.new("TextLabel")
         title.Size = noSubtitle and UDim2.new(1, -42, 1, 0) or UDim2.new(1, -42, 0, 18)
-        title.Position = noSubtitle and UDim2.new(0, 38, 0.5, 0) or UDim2.new(0, 38, 0, 7)
+        title.Position = noSubtitle and UDim2.new(0, 38, 0.5, 1) or UDim2.new(0, 38, 0, 7)
         title.AnchorPoint = noSubtitle and Vector2.new(0, 0.5) or Vector2.new(0, 0)
         title.BackgroundTransparency = 1
         title.Text = titleText
