@@ -280,6 +280,38 @@ return function(opts)
     screenGui.ResetOnSpawn = false
     screenGui.Parent = localParent
 
+    local loadingOverlay = Instance.new("Frame")
+    loadingOverlay.Name = "LoadingOverlay"
+    loadingOverlay.Size = UDim2.new(1, 0, 1, 0)
+    loadingOverlay.BackgroundColor3 = Color3.fromRGB(10, 12, 18)
+    loadingOverlay.BorderSizePixel = 0
+    loadingOverlay.ZIndex = 100
+    loadingOverlay.Parent = screenGui
+
+    local loadingTitle = Instance.new("TextLabel")
+    loadingTitle.Size = UDim2.new(1, -40, 0, 28)
+    loadingTitle.Position = UDim2.new(0, 20, 0.5, -22)
+    loadingTitle.BackgroundTransparency = 1
+    loadingTitle.Text = opts.loadingText or "Loading hub..."
+    loadingTitle.TextColor3 = currentThemeColor
+    loadingTitle.Font = Enum.Font.GothamBold
+    loadingTitle.TextSize = 16
+    loadingTitle.TextXAlignment = Enum.TextXAlignment.Center
+    loadingTitle.ZIndex = 101
+    loadingTitle.Parent = loadingOverlay
+
+    local loadingStatus = Instance.new("TextLabel")
+    loadingStatus.Size = UDim2.new(1, -40, 0, 20)
+    loadingStatus.Position = UDim2.new(0, 20, 0.5, 10)
+    loadingStatus.BackgroundTransparency = 1
+    loadingStatus.Text = "Preparing functions..."
+    loadingStatus.TextColor3 = Color3.fromRGB(165, 175, 195)
+    loadingStatus.Font = Enum.Font.Gotham
+    loadingStatus.TextSize = 11
+    loadingStatus.TextXAlignment = Enum.TextXAlignment.Center
+    loadingStatus.ZIndex = 101
+    loadingStatus.Parent = loadingOverlay
+
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
     mainFrame.Size = UDim2.new(0, 560, 0, 380)
@@ -288,6 +320,7 @@ return function(opts)
     mainFrame.BorderSizePixel = 0
     mainFrame.Active = true
     mainFrame.ClipsDescendants = true
+    mainFrame.Visible = false
     mainFrame.Parent = screenGui
 
     local mainStroke = Instance.new("UIStroke")
@@ -1564,6 +1597,158 @@ return function(opts)
         refreshConfigs()
     end
 
+    local loadingFinished = false
+    local errorOverlay
+    local lastError = ""
+
+    local function copyText(value)
+        local copier = type(setclipboard) == "function" and setclipboard or (type(toclipboard) == "function" and toclipboard or nil)
+        if not copier then return false end
+        return pcall(copier, tostring(value))
+    end
+
+    local function finishLoading(message)
+        if loadingFinished then return end
+        loadingFinished = true
+        if message then loadingStatus.Text = tostring(message) end
+        mainFrame.Visible = true
+        TweenService:Create(loadingOverlay, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
+        TweenService:Create(loadingTitle, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 1}):Play()
+        TweenService:Create(loadingStatus, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 1}):Play()
+        task.delay(0.3, function()
+            if loadingOverlay and loadingOverlay.Parent then loadingOverlay:Destroy() end
+        end)
+    end
+
+    local function reportError(message)
+        lastError = tostring(message or "Unknown error")
+        copyText(lastError)
+        finishLoading("Loaded with an error")
+        if errorOverlay and errorOverlay.Parent then
+            local messageLabel = errorOverlay:FindFirstChild("ErrorMessage", true)
+            if messageLabel then messageLabel.Text = lastError end
+            return
+        end
+
+        errorOverlay = Instance.new("Frame")
+        errorOverlay.Name = "ErrorOverlay"
+        errorOverlay.Size = UDim2.new(1, 0, 1, 0)
+        errorOverlay.BackgroundColor3 = Color3.fromRGB(5, 7, 12)
+        errorOverlay.BackgroundTransparency = 0.2
+        errorOverlay.BorderSizePixel = 0
+        errorOverlay.ZIndex = 110
+        errorOverlay.Parent = screenGui
+
+        local panel = Instance.new("Frame")
+        panel.Size = UDim2.new(0, 430, 0, 190)
+        panel.Position = UDim2.new(0.5, -215, 0.5, -95)
+        panel.BackgroundColor3 = Color3.fromRGB(22, 25, 35)
+        panel.BorderSizePixel = 0
+        panel.ZIndex = 111
+        panel.Parent = errorOverlay
+        applyCorner(panel)
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(235, 75, 85)
+        stroke.Thickness = 1.5
+        stroke.Parent = panel
+
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, -24, 0, 28)
+        title.Position = UDim2.new(0, 12, 0, 10)
+        title.BackgroundTransparency = 1
+        title.Text = "❌ Script Error"
+        title.TextColor3 = Color3.fromRGB(255, 105, 115)
+        title.Font = Enum.Font.GothamBold
+        title.TextSize = 15
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.ZIndex = 112
+        title.Parent = panel
+
+        local messageLabel = Instance.new("TextLabel")
+        messageLabel.Name = "ErrorMessage"
+        messageLabel.Size = UDim2.new(1, -24, 0, 76)
+        messageLabel.Position = UDim2.new(0, 12, 0, 42)
+        messageLabel.BackgroundColor3 = Color3.fromRGB(13, 16, 24)
+        messageLabel.BorderSizePixel = 0
+        messageLabel.Text = lastError
+        messageLabel.TextColor3 = Color3.fromRGB(235, 238, 245)
+        messageLabel.Font = Enum.Font.Code
+        messageLabel.TextSize = 11
+        messageLabel.TextWrapped = true
+        messageLabel.TextXAlignment = Enum.TextXAlignment.Left
+        messageLabel.TextYAlignment = Enum.TextYAlignment.Top
+        messageLabel.ZIndex = 112
+        messageLabel.Parent = panel
+        applyCorner(messageLabel)
+
+        local copyButton = Instance.new("TextButton")
+        copyButton.Size = UDim2.new(0, 120, 0, 28)
+        copyButton.Position = UDim2.new(1, -132, 1, -40)
+        copyButton.BackgroundColor3 = Color3.fromRGB(45, 55, 75)
+        copyButton.Text = "Copy Error"
+        copyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        copyButton.Font = Enum.Font.GothamBold
+        copyButton.TextSize = 11
+        copyButton.AutoButtonColor = false
+        copyButton.ZIndex = 112
+        copyButton.Parent = panel
+        applyCorner(copyButton)
+
+        local closeButton = Instance.new("TextButton")
+        closeButton.Size = UDim2.new(0, 80, 0, 28)
+        closeButton.Position = UDim2.new(0, 12, 1, -40)
+        closeButton.BackgroundColor3 = Color3.fromRGB(45, 50, 65)
+        closeButton.Text = "Close"
+        closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        closeButton.Font = Enum.Font.GothamBold
+        closeButton.TextSize = 11
+        closeButton.AutoButtonColor = false
+        closeButton.ZIndex = 112
+        closeButton.Parent = panel
+        applyCorner(closeButton)
+
+        copyButton.MouseButton1Click:Connect(function()
+            copyButton.Text = copyText(lastError) and "Copied" or "Clipboard unavailable"
+            task.delay(1.2, function()
+                if copyButton and copyButton.Parent then copyButton.Text = "Copy Error" end
+            end)
+        end)
+        closeButton.MouseButton1Click:Connect(function()
+            if errorOverlay then errorOverlay:Destroy() end
+            errorOverlay = nil
+        end)
+    end
+
+    local function checkFunction(name, callback, ...)
+        if type(callback) ~= "function" then
+            reportError(tostring(name or "Function") .. " is not a function")
+            return false, "not a function"
+        end
+        local arguments = {...}
+        local ok, result = xpcall(function()
+            return callback(table.unpack(arguments))
+        end, function(err)
+            local message = tostring(err)
+            reportError(tostring(name or "Function") .. ": " .. message)
+            return message
+        end)
+        return ok, result
+    end
+
+    pcall(function()
+        local LogService = game:GetService("LogService")
+        LogService.MessageOut:Connect(function(message, messageType)
+            if messageType == Enum.MessageType.MessageError then
+                reportError(message)
+            end
+        end)
+    end)
+
+    task.defer(function()
+        finishLoading()
+    end)
+
     local function GetItemFromList(listName, parent, createIfMissing)
         local name = tostring(listName or "List")
         local existing = listRegistry[name]
@@ -1592,6 +1777,12 @@ return function(opts)
         destroy = function()
             if screenGui then screenGui:Destroy() end
         end,
+        finishLoading = finishLoading,
+        FinishLoading = finishLoading,
+        reportError = reportError,
+        ReportError = reportError,
+        checkFunction = checkFunction,
+        CheckFunction = checkFunction,
         disableAll = DisableAllFeatureStates,
         CreateButton = createButton,
         CreateToggle = createToggle,
